@@ -1,0 +1,746 @@
+\documentclass[12pt,fleqn]{article}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CONFIGURAÇÃO DE IDIOMA E CODIFICAÇÃO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage[utf8]{inputenc}   % Codificação UTF-8
+\usepackage[T1]{fontenc}      % Codificação de fontes
+%\usepackage[brazil]{babel}    % Português do Brasil (Babel moderno)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PACOTES DO TEMPLATE
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage{setup/config}     % Arquivo de estilo do evento
+\usepackage{natbib}           % Sistema de citações
+\usepackage{graphicx}         % Inserção de figuras
+\usepackage{color}            % Controle de cores
+\usepackage{wallpaper}        % Imagens de fundo
+\usepackage{hyperref}         % Links e referências
+\usepackage{titlesec}         % Controle de títulos
+\usepackage{float}            % Permite usar [H] em figuras/tabelas
+\usepackage{fancyhdr}         % Cabeçalhos e rodapés
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DIRETÓRIO DAS FIGURAS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\graphicspath{{figures/}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% AJUSTE DE ESPAÇAMENTO NA BIBLIOGRAFIA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Reduz espaçamento entre referências
+\let\OLDthebibliography\thebibliography
+\renewcommand\thebibliography[1]{%
+\OLDthebibliography{#1}
+\setlength{\parskip}{0pt}
+\setlength{\itemsep}{0pt plus 0.3ex}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TÍTULO DO ARTIGO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{BIOSENSIA-DC: A DRUGCLIP-BASED COMPUTATIONAL PROTOTYPE FOR TARGET FISHING APPLIED TO BIORECEPTOR DISCOVERY}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% AUTORES E AFILIAÇÕES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\author{
+\rm
+\begin{tabular}{l}
+\textbf{First Author}$^{1}$ - {\textnormal e-mail}\\
+\textbf{Second Author}$^{2}$ - {\textnormal e-mail}\\
+\textbf{Third Author}$^{3}$ - {\textnormal e-mail}\\
+{\fontsize{11}{0}\selectfont $^{1}$Universidade Federal do Rio Grande – Rio Grande – RS}\\
+{\fontsize{11}{0}\selectfont $^{2}$Universidade Federal do Rio Grande – Santo Antônio da Patrulha – RS}\\
+{\fontsize{11}{0}\selectfont $^{3}$Universidade Federal do Rio Grande – São Lourenço do Sul – RS}
+\end{tabular}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% RODAPÉ ESPECIAL DA PRIMEIRA PÁGINA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\fancypagestyle{firstpagestyle}
+{
+\renewcommand{\headrulewidth}{0pt}
+
+\fancyfoot[C]{
+\footnotesize
+\parbox{15cm}{
+\centering
+\fontsize{7.5}{0}\selectfont\it
+XXIX ENMC – Encontro Nacional de Modelagem Computacional\\
+XVII ECTM – Encontro de Ciência e Tecnologia de Materiais\\
+06 a 09 de outubro de 2026 - Bento Gonçalves - RS
+}}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% INÍCIO DO DOCUMENTO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\pretolerance=10000
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% LOGO DO EVENTO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{figure}
+\centering
+\includegraphics[width=6.25in]{logo.png}
+\end{figure}
+
+\vspace{-3cm}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TÍTULO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\maketitle
+
+\pagestyle{empty}
+\thispagestyle{firstpagestyle}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% RESUMO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{abstract}
+
+To be written after the main text.
+Suggested content:
+
+- Introduce BioSensIA as a project aimed at supporting the discovery of biorecognition elements for biosensors.
+
+- Present BioSensIA-DC as a computational prototype for target fishing: given a query molecule, rank candidate protein pockets.
+
+- Explain that the prototype adapts DrugCLIP, originally designed for virtual screening, to the reverse direction: molecule-to-pocket retrieval.
+
+- Highlight implementation contributions: construction of candidate-pocket LMDB files, query-molecule LMDB files, molecule lookup via SMILES/PubChem, target-fishing retrieval, and an initial benchmarking workflow.
+
+- State clearly that the current quantitative results are preliminary and unsatisfactory, including for the original DrugCLIP model in the local evaluation setup.
+
+- Frame the paper as a methodological and computational-prototype report, not as a validated performance claim.
+  
+\end{abstract}
+
+\keywords{\em{Biosensors, Target fishing, DrugCLIP, Contrastive learning, Chemoinformatics}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CABEÇALHO DAS DEMAIS PÁGINAS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\fancyhead[L]{\footnotesize{\fontsize{7.5}{0}\selectfont\it
+XXIX ENMC, XVII ECTM\\
+06 a 09 de outubro de 2026}}
+
+\renewcommand{\headrulewidth}{0pt}
+
+\fancyfoot[C]{
+\footnotesize
+\parbox{15cm}{
+\centering
+\fontsize{7.5}{0}\selectfont\it
+XXIX ENMC – Encontro Nacional de Modelagem Computacional\\
+XVII ECTM – Encontro de Ciência e Tecnologia de Materiais\\
+06 a 09 de outubro de 2026 - Bento Gonçalves - RS
+}}
+
+\rhead{}
+
+\pagestyle{fancy}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% INÍCIO DO TEXTO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\section{INTRODUCTION}
+
+\subsection{Biosensors and the bioreceptor-selection problem}
+
+\begin{itemize}
+  \item Explain that biosensors rely on a biorecognition element capable of interacting selectively with the analyte of interest. Examples include enzymes, antibodies, aptamers, receptors, and other biomolecular recognition structures.
+
+  \item Emphasize that selecting a suitable bioreceptor is a critical step in biosensor development. This choice is especially difficult for small molecules, for analytes with scarce experimental data, and for sensing problems where the relevant biological interactions are not obvious.
+
+  \item Present the computational problem addressed by BioSensIA: given an analyte molecule, identify proteins, protein domains, binding pockets, or biomolecular structures that may interact with it and therefore deserve investigation as candidate bioreceptors.
+
+  \item Explain that BioSensIA-DC is one computational component of this broader project. Its role is to rank candidate protein pockets for a query molecule using learned molecular and pocket representations.
+\end{itemize}
+
+\subsection{Motivating example: okadaic acid}
+
+\begin{itemize}
+  \item Introduce okadaic acid as a motivating analyte because of its relevance to diarrhetic shellfish poisoning and marine-toxin monitoring.
+
+  \item Explain that okadaic acid is known to interact with serine/threonine phosphatases, especially PP2A, and that structural data exist for PP2A--okadaic-acid complexes.
+
+  \item Use this example to motivate target fishing in the biosensor context: if a molecule is known or suspected to bind a biomolecular structure, a computational system that ranks possible targets may help guide the search for biorecognition elements.
+
+  \item Make clear that the prototype is not limited to okadaic acid. The intended input is any query molecule for which a user wants to explore plausible protein-pocket candidates.
+\end{itemize}
+
+\subsection{Virtual screening, target fishing, and representation learning}
+
+\begin{itemize}
+  \item Define virtual screening as the task in which a target, usually a protein pocket, is used as a query to rank candidate molecules.
+
+  \item Define target fishing as the reverse task: a molecule is used as a query, and candidate targets, proteins, or pockets are ranked according to their predicted compatibility with that molecule.
+
+  \item Briefly mention established target-fishing approaches such as reverse pharmacophore mapping and ligand-similarity-based prediction. These methods provide conceptual baselines for the task, even though BioSensIA-DC follows a different representation-learning approach.
+
+  \item Introduce DrugCLIP as a contrastive model that learns compatible representations of protein pockets and molecules. DrugCLIP formulates virtual screening as dense retrieval.
+
+  \item Introduce Uni-Mol as the 3D molecular representation framework used by DrugCLIP for molecules and pockets.
+
+  \item Explain the central idea behind BioSensIA-DC: because DrugCLIP learns a similarity score between molecules and pockets, the same score can be used in the reverse direction for target fishing.
+\end{itemize}
+
+\subsection{Objectives and contributions}
+
+\begin{itemize}
+  \item State the main objective of the paper: to describe BioSensIA-DC, an open computational prototype that extends DrugCLIP for molecule-to-pocket target fishing in the context of bioreceptor discovery.
+
+  \item List the implemented contributions:
+  \begin{itemize}
+    \item construction of a candidate-pocket LMDB file from DrugCLIP-compatible data;
+    \item construction of query-molecule LMDB files from SMILES strings, local DrugCLIP identifiers, PubChem CIDs, or compound names;
+    \item implementation of molecule-to-pocket retrieval;
+    \item generation of ranked pocket lists with compatibility scores;
+    \item implementation of an initial benchmarking and diagnostic workflow;
+    \item documentation of installation and execution steps in a public repository.
+  \end{itemize}
+
+  \item State the main limitation upfront: suitable benchmark validation has not yet been completed, and the preliminary benchmark results are poor both for the fine-tuned BioSensIA-DC model and for the original DrugCLIP model under the current local evaluation setup.
+
+  \item Explain how the paper should therefore be interpreted: as a computational-prototype and methodology paper, not as evidence that the current model is already a reliable target-fishing predictor.
+\end{itemize}
+
+
+\section{METHODOLOGY}
+
+\subsection{Overview of the BioSensIA-DC workflow}
+
+\begin{itemize}
+  \item Describe BioSensIA-DC as a prototype derived from DrugCLIP, with additional code for the target-fishing direction.
+
+  \item Present the general workflow:
+  \begin{enumerate}
+    \item receive one or more query molecules;
+    \item build or load a DrugCLIP-compatible molecule LMDB file;
+    \item build or load a candidate-pocket LMDB file;
+    \item encode molecules and pockets using the DrugCLIP encoders;
+    \item compute molecule-pocket similarity scores;
+    \item rank candidate pockets by score;
+    \item save the ranked list for downstream analysis.
+  \end{enumerate}
+
+  \item Include a schematic figure showing the molecule-to-pocket direction:
+  \begin{itemize}
+    \item query molecule on the left;
+    \item molecule encoder;
+    \item cached candidate-pocket embeddings;
+    \item similarity computation;
+    \item ranked list of protein pockets on the right.
+  \end{itemize}
+
+  \item Mention the public repository:
+  \begin{itemize}
+    \item \url{https://github.com/fnaufel/BioSensIA-DC}
+  \end{itemize}
+
+  \item Explain that the repository contains source code, installation instructions, retrieval scripts, target-fishing scripts, and an initial benchmarking workflow.
+\end{itemize}
+
+\subsection{Base model: DrugCLIP and Uni-Mol}
+
+\begin{itemize}
+  \item Describe DrugCLIP as a two-tower architecture:
+  \begin{itemize}
+    \item one encoder maps molecules to latent vectors;
+    \item the other encoder maps protein pockets to latent vectors;
+    \item a similarity score compares the two vectors.
+  \end{itemize}
+
+  \item Explain that both encoders are based on Uni-Mol-style 3D representations, using atom types and atomic coordinates.
+
+  \item Define the conceptual similarity score:
+  \begin{equation}
+  s(p,m) = g_{\phi}(x^p)^{T} f_{\theta}(x^m)
+  \end{equation}
+
+  \item Explain the notation:
+  \begin{itemize}
+    \item \(p\) denotes a protein pocket;
+    \item \(m\) denotes a molecule;
+    \item \(x^p\) and \(x^m\) denote their input representations;
+    \item \(g_{\phi}\) is the pocket encoder;
+    \item \(f_{\theta}\) is the molecule encoder;
+    \item \(s(p,m)\) is a compatibility score, not a calibrated binding affinity.
+  \end{itemize}
+
+  \item Explain that virtual screening ranks molecules for a fixed pocket:
+  \begin{equation}
+  p \rightarrow \{m_1,m_2,\ldots,m_n\}
+  \end{equation}
+
+  \item Explain that target fishing reverses the retrieval direction:
+  \begin{equation}
+  m \rightarrow \{p_1,p_2,\ldots,p_n\}
+  \end{equation}
+
+  \item Emphasize that BioSensIA-DC preserves the DrugCLIP model architecture and changes the surrounding data preparation, retrieval, and fine-tuning workflow.
+\end{itemize}
+
+\subsection{Data organization and LMDB files}
+
+\begin{itemize}
+  \item Explain that DrugCLIP stores molecules and pockets in LMDB files, with atom types, coordinates, and auxiliary identifiers.
+
+  \item Describe the original DrugCLIP data organization:
+  \begin{itemize}
+    \item molecule libraries for virtual screening;
+    \item pocket data extracted from protein-ligand complexes;
+    \item model checkpoints;
+    \item atom dictionaries;
+    \item cached embeddings.
+  \end{itemize}
+
+  \item Explain why target fishing requires a different organization: pockets become the candidate library, while molecules become the query objects.
+
+  \item Describe the candidate-pocket LMDB construction:
+  \begin{itemize}
+    \item read DrugCLIP-compatible structural records;
+    \item extract pocket entries;
+    \item preserve PDB identifiers;
+    \item write a new LMDB containing candidate pockets;
+    \item allow later embedding precomputation and caching.
+  \end{itemize}
+
+  \item Describe the query-molecule LMDB construction:
+  \begin{itemize}
+    \item accept SMILES strings directly;
+    \item accept local DrugCLIP molecule identifiers;
+    \item accept PubChem CIDs;
+    \item accept PubChem compound names;
+    \item convert the query into a DrugCLIP-compatible LMDB record.
+  \end{itemize}
+
+  \item Discuss molecular-standardization issues that must be handled carefully:
+  \begin{itemize}
+    \item salts versus parent compounds;
+    \item tautomeric forms;
+    \item stereochemistry;
+    \item conformer generation;
+    \item consistency between training, query, and benchmark data.
+  \end{itemize}
+\end{itemize}
+
+\subsection{Target-fishing retrieval implementation}
+
+\begin{itemize}
+  \item Identify the main implemented modules:
+  \begin{itemize}
+    \item \texttt{biosensia\_target\_fishing.py};
+    \item \texttt{biosensia\_retrieval.py};
+    \item \texttt{lmdb\_helpers.py};
+    \item \texttt{biosensia\_target\_fishing\_benchmark.py}.
+  \end{itemize}
+
+  \item Describe the retrieval procedure:
+  \begin{enumerate}
+    \item load query molecules from an LMDB file;
+    \item load candidate pockets from an LMDB file;
+    \item encode query molecules;
+    \item encode candidate pockets or reuse cached pocket embeddings;
+    \item compute the similarity matrix;
+    \item rank pockets by compatibility with the query molecule;
+    \item write the ranked output to a tabular file.
+  \end{enumerate}
+
+  \item Explain how cached embeddings reduce repeated computation. When the same candidate-pocket library is reused, only the query molecules need to be newly encoded.
+
+  \item Explain that the output score should be interpreted as a ranking score. It is not a binding free energy, an inhibition constant, or a direct physical measurement.
+
+  \item Include a planned example command or code fragment:
+  \begin{verbatim}
+import biosensia_target_fishing as tf
+
+tf.create_mol_lmdb("okadaic acid", "data/oka.lmdb")
+tf.build_candidate_pockets_lmdb("data/candidate_pockets.lmdb")
+  \end{verbatim}
+
+  \item Include another planned example for running retrieval:
+  \begin{verbatim}
+cd external/DrugCLIP
+./target_fishing.sh
+  \end{verbatim}
+\end{itemize}
+
+\subsection{Fine-tuning formulation for target fishing}
+
+\begin{itemize}
+  \item Explain that the original DrugCLIP contrastive loss is naturally aligned with virtual screening, but not necessarily optimized for target fishing.
+
+  \item Describe the issue with repeated ligands:
+  \begin{itemize}
+    \item the same molecule can appear in several positive protein-ligand complexes;
+    \item those complexes may correspond to different structures, homologous proteins, isoforms, or related binding sites;
+    \item in target fishing, all known pockets for the same molecule should be treated as positives;
+    \item the original diagonal-only contrastive loss may treat some known positives as implicit negatives, depending on batch composition.
+  \end{itemize}
+
+  \item Define the set of known positive pockets for a molecule:
+  \begin{equation}
+  P^{+}(m) = \{p : (p,m) \in D\}
+  \end{equation}
+
+  \item Explain that \(D\) denotes the available set of observed positive pocket-molecule pairs.
+
+  \item Define a positive-pair mask for a batch:
+  \begin{equation}
+  Y_{ij} =
+  \begin{cases}
+  1, & \text{if } p_j \in P^{+}(m_i)\\
+  0, & \text{otherwise}
+  \end{cases}
+  \end{equation}
+
+  \item Define the multi-positive molecule-to-pocket loss:
+  \begin{equation}
+  L^{m \rightarrow p}_{i}
+  =
+  - \log
+  \frac{
+    \sum_j Y_{ij} \exp(S_{ij}/\tau)
+  }{
+    \sum_j \exp(S_{ij}/\tau)
+  }
+  \end{equation}
+
+  \item Explain that \(S_{ij}=s(p_j,m_i)\) is the similarity between pocket \(p_j\) and molecule \(m_i\), and that \(\tau\) is the contrastive temperature.
+
+  \item Explain the intuition: for each query molecule, the loss increases the total softmax probability assigned to all known positive pockets in the batch.
+
+  \item Present fine-tuning variants to be discussed:
+  \begin{itemize}
+    \item freeze both encoders and train only projection layers;
+    \item train projection layers plus the temperature parameter;
+    \item unfreeze upper encoder layers;
+    \item train the full model with a smaller learning rate;
+    \item compare molecule-to-pocket loss alone with a symmetric loss that also includes pocket-to-molecule terms.
+  \end{itemize}
+
+  \item State that the current implementation and experiments are preliminary and that the poor validation results do not yet support a performance claim.
+\end{itemize}
+
+\subsection{Benchmarking and diagnostic evaluation}
+
+\begin{itemize}
+  \item Explain that benchmarking target fishing is difficult because a query molecule may have several true targets, and missing pairs are not necessarily true negatives.
+
+  \item Describe the implemented benchmark workflow:
+  \begin{itemize}
+    \item construct an explicit table of positive molecule-pocket pairs;
+    \item build query-molecule LMDB files;
+    \item build candidate-pocket LMDB files;
+    \item run molecule-to-pocket retrieval;
+    \item compare ranked lists against known positives;
+    \item compute ranking metrics.
+  \end{itemize}
+
+  \item List metrics to be discussed:
+  \begin{itemize}
+    \item top-\(k\) accuracy;
+    \item recall@\(k\);
+    \item mean reciprocal rank;
+    \item rank of the first known positive;
+    \item enrichment-style metrics for early retrieval;
+    \item AUROC only with caution, because it may be less informative when early ranking is the main objective.
+  \end{itemize}
+
+  \item Explain that preliminary results are poor for both the fine-tuned BioSensIA-DC model and the original DrugCLIP model in the current evaluation setup.
+
+  \item Explain that this suggests the need for diagnostic work before any strong conclusion:
+  \begin{itemize}
+    \item verify data splits;
+    \item verify checkpoint compatibility;
+    \item verify LMDB contents;
+    \item verify atom dictionaries;
+    \item verify cached embeddings;
+    \item verify whether candidate pockets match the positive-pair table;
+    \item verify whether the benchmark task is consistent with the model's training assumptions.
+  \end{itemize}
+\end{itemize}
+
+\subsection{Computational environment and reproducibility}
+
+\begin{itemize}
+  \item Describe the computational environment used for development:
+  \begin{itemize}
+    \item GNU/Linux;
+    \item Python 3.11;
+    \item PyTorch with CUDA;
+    \item RDKit;
+    \item Uni-Core;
+    \item DrugCLIP;
+    \item LMDB.
+  \end{itemize}
+
+  \item Explain the use of \texttt{uv} for Python environment management.
+
+  \item Explain that a GPU is required by inherited constraints in the original DrugCLIP code path.
+
+  \item Discuss technical issues encountered:
+  \begin{itemize}
+    \item compiling Uni-Core;
+    \item CUDA extension compatibility;
+    \item C++ standard-library compatibility;
+    \item GPU memory limits;
+    \item long-running embedding precomputation;
+    \item embedding-cache invalidation.
+  \end{itemize}
+
+  \item Explain why these details matter: they affect reproducibility and practical adoption of 3D deep-learning models in computational biosensor research.
+\end{itemize}
+
+
+\section{RESULTS AND DISCUSSION}
+
+\subsection{Implemented software artifacts}
+
+\begin{itemize}
+  \item Present the public repository as the main concrete result of this stage.
+
+  \item List implemented artifacts:
+  \begin{itemize}
+    \item query-molecule LMDB generation;
+    \item candidate-pocket LMDB generation;
+    \item molecule-to-pocket retrieval;
+    \item ranked-pocket output;
+    \item preliminary benchmark code;
+    \item installation and execution documentation.
+  \end{itemize}
+
+  \item Include a table with columns such as:
+  \begin{itemize}
+    \item file or module name;
+    \item purpose;
+    \item input;
+    \item output;
+    \item current status.
+  \end{itemize}
+
+  \item Discuss how these artifacts convert DrugCLIP from a virtual-screening-only workflow into a prototype that can also run target-fishing queries.
+\end{itemize}
+
+\subsection{Qualitative query example with okadaic acid}
+
+\begin{itemize}
+  \item Present okadaic acid as a qualitative sanity-check query.
+
+  \item Explain the biological expectation: PP2A-related pockets should be considered relevant because PP2A is a known okadaic-acid target.
+
+  \item Include a planned table with:
+  \begin{itemize}
+    \item rank;
+    \item PDB identifier;
+    \item score;
+    \item protein or pocket annotation;
+    \item whether the result is known, plausible, unclear, or likely irrelevant.
+  \end{itemize}
+
+  \item Discuss whether PP2A-associated structures appear near the top of the ranking.
+
+  \item State clearly that this qualitative example is not a benchmark. It is only a sanity check and an illustration of the workflow.
+\end{itemize}
+
+\subsection{Preliminary quantitative results}
+
+\begin{itemize}
+  \item Report that the quantitative results obtained so far are unsatisfactory.
+
+  \item Separate two observations:
+  \begin{itemize}
+    \item the fine-tuned BioSensIA-DC model currently performs poorly;
+    \item the original DrugCLIP model also performs poorly under the current local benchmark workflow.
+  \end{itemize}
+
+  \item Avoid claiming improvement over DrugCLIP.
+
+  \item Present the results as a diagnostic table, not as a final performance table. Suggested columns:
+  \begin{itemize}
+    \item model;
+    \item checkpoint;
+    \item query set;
+    \item candidate-pocket set;
+    \item metric values;
+    \item diagnostic comment.
+  \end{itemize}
+
+  \item Explain that the current evidence points to unresolved issues in reproduction, data handling, benchmark construction, or model adaptation.
+\end{itemize}
+
+\subsection{Possible causes of the poor benchmark results}
+
+\begin{itemize}
+  \item Discuss possible data problems:
+  \begin{itemize}
+    \item mismatch between training, validation, and candidate LMDB files;
+    \item differences between the downloaded data and the data used in the original DrugCLIP paper;
+    \item duplicated PDB identifiers with different structures;
+    \item ligand-identity inconsistencies;
+    \item salt, tautomer, stereochemistry, or conformer inconsistencies.
+  \end{itemize}
+
+  \item Discuss possible implementation or protocol problems:
+  \begin{itemize}
+    \item wrong or incompatible checkpoint;
+    \item stale cached embeddings;
+    \item incorrect correspondence between pocket identifiers and benchmark positives;
+    \item candidate libraries that do not contain the expected positives;
+    \item metrics computed over an inappropriate candidate set;
+    \item target-fishing evaluation derived from data originally organized for virtual screening.
+  \end{itemize}
+
+  \item Discuss possible modeling limitations:
+  \begin{itemize}
+    \item DrugCLIP was primarily motivated by virtual screening;
+    \item target fishing is multi-positive by nature;
+    \item unobserved pairs are not reliable true negatives;
+    \item the similarity score is not physically calibrated;
+    \item fine-tuning projection layers alone may be insufficient.
+  \end{itemize}
+
+  \item Conclude that the next step must be a systematic audit before interpreting the model's predictive value.
+\end{itemize}
+
+\subsection{Relationship to existing target-fishing tools}
+
+\begin{itemize}
+  \item Compare BioSensIA-DC conceptually with PharmMapper:
+  \begin{itemize}
+    \item PharmMapper performs reverse pharmacophore mapping;
+    \item BioSensIA-DC performs learned molecule-pocket representation matching;
+    \item both produce ranked target-candidate lists.
+  \end{itemize}
+
+  \item Compare BioSensIA-DC conceptually with SwissTargetPrediction:
+  \begin{itemize}
+    \item SwissTargetPrediction relies on similarity to known ligands;
+    \item BioSensIA-DC relies on learned 3D compatibility between molecules and pockets;
+    \item the two approaches may be complementary.
+  \end{itemize}
+
+  \item Discuss how future versions of BioSensIA could combine rankings from multiple methods:
+  \begin{itemize}
+    \item rank aggregation;
+    \item consensus among tools;
+    \item grouping by protein family;
+    \item docking-based follow-up;
+    \item literature-based validation.
+  \end{itemize}
+\end{itemize}
+
+\subsection{Relevance to the BioSensIA project}
+
+\begin{itemize}
+  \item Explain that BioSensIA-DC is one module in a larger computational pipeline for biosensor-oriented bioreceptor discovery.
+
+  \item Relate the prototype to planned BioSensIA components:
+  \begin{itemize}
+    \item UniProt and Gene Ontology queries;
+    \item domain and family analysis;
+    \item PDB and AlphaFold structural data;
+    \item pocket prediction;
+    \item docking and pharmacophore analysis;
+    \item evidence aggregation for candidate bioreceptors.
+  \end{itemize}
+
+  \item Explain that even before full validation, BioSensIA-DC provides an operational way to turn a molecule-centered question into a ranked list of structural candidates.
+
+  \item Emphasize that the current results motivate further validation rather than immediate deployment.
+\end{itemize}
+
+
+\section{CONCLUSIONS}
+
+\subsection{Summary of contributions}
+
+\begin{itemize}
+  \item Summarize that the paper presented BioSensIA-DC, a DrugCLIP-based computational prototype for molecule-to-pocket target fishing.
+
+  \item Highlight the main engineering contribution: implementing the reverse retrieval direction needed to rank candidate pockets for a query molecule.
+
+  \item Highlight that the prototype includes data preparation, retrieval execution, ranked output generation, and preliminary evaluation tools.
+
+  \item Highlight that the implementation is publicly available and intended to support reproducible development.
+\end{itemize}
+
+\subsection{Limitations}
+
+\begin{itemize}
+  \item State that the current model has not yet been validated as a reliable predictor.
+
+  \item State that preliminary benchmark results are poor for both the fine-tuned model and the original DrugCLIP model in the current local evaluation setup.
+
+  \item Explain that these results may reflect unresolved problems in reproduction, data consistency, benchmark construction, or the adaptation of DrugCLIP to target fishing.
+
+  \item State that no claim of improved predictive performance is made in the present paper.
+\end{itemize}
+
+\subsection{Future work}
+
+\begin{itemize}
+  \item Reproduce the original DrugCLIP benchmarks more carefully before interpreting target-fishing results.
+
+  \item Audit checkpoints, LMDB files, atom dictionaries, cached embeddings, and benchmark-positive definitions.
+
+  \item Build a target-fishing benchmark with rigorous train-test separation and clear ligand-identity policies.
+
+  \item Evaluate multi-conformer query strategies, including maximum, mean, median, quantile, and log-sum-exp aggregation.
+
+  \item Expand the candidate-pocket library using PDB, BioLiP, sc-PDB, AlphaFold structures, and pocket-prediction tools.
+
+  \item Compare BioSensIA-DC rankings with PharmMapper, SwissTargetPrediction, and docking-based validation.
+
+  \item Integrate BioSensIA-DC into a broader BioSensIA interface for biosensor-oriented candidate discovery.
+\end{itemize}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Acknowledgements and AI disclosure
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section*{Acknowledgements}
+
+\begin{itemize}
+  \item Acknowledge computational infrastructure, collaborators, and funding sources, if applicable.
+
+  \item Include the required generative-AI disclosure. Suggested wording:
+  \begin{itemize}
+    \item The author used ChatGPT (OpenAI) to assist with manuscript organization, language revision, and discussion of alternative formulations. All scientific content, interpretation of results, and conclusions remain the responsibility of the author.
+  \end{itemize}
+\end{itemize}
+
+% (todo o restante do conteúdo do template permanece exatamente igual)
+
+\bibliographystyle{apalike}
+\fontsize{11}{0}\selectfont
+\bibliography{bib/references}
+
+
+\end{document}
+%%% Local Variables:
+%%% mode: LaTeX
+%%% TeX-master: t
+%%% End:

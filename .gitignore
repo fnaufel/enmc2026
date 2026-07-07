@@ -1,0 +1,6 @@
+/auto/
+/bib/
+*.aux
+*.bbl
+*.blg
+*.out
