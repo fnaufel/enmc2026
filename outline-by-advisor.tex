@@ -115,20 +115,20 @@ XVII ECTM – Encontro de Ciência e Tecnologia de Materiais\\
 
 \begin{abstract}
 
-% To be written after the main text.
-% Suggested content:
+To be written after the main text.
+Suggested content:
 
-% - Introduce BioSensIA as a project aimed at supporting the discovery of biorecognition elements for biosensors.
+- Introduce BioSensIA as a project aimed at supporting the discovery of biorecognition elements for biosensors.
 
-% - Present BioSensIA-DC as a computational prototype for target fishing: given a query molecule, rank candidate protein pockets.
+- Present BioSensIA-DC as a computational prototype for target fishing: given a query molecule, rank candidate protein pockets.
 
-% - Explain that the prototype adapts DrugCLIP, originally designed for virtual screening, to the reverse direction: molecule-to-pocket retrieval.
+- Explain that the prototype adapts DrugCLIP, originally designed for virtual screening, to the reverse direction: molecule-to-pocket retrieval.
 
-% - Highlight implementation contributions: construction of candidate-pocket LMDB files, query-molecule LMDB files, molecule lookup via SMILES/PubChem, target-fishing retrieval, and an initial benchmarking workflow.
+- Highlight implementation contributions: construction of candidate-pocket LMDB files, query-molecule LMDB files, molecule lookup via SMILES/PubChem, target-fishing retrieval, and an initial benchmarking workflow.
 
-% - State clearly that the current quantitative results are preliminary and unsatisfactory, including for the original DrugCLIP model in the local evaluation setup.
+- State clearly that the current quantitative results are preliminary and unsatisfactory, including for the original DrugCLIP model in the local evaluation setup.
 
-% - Frame the paper as a methodological and computational-prototype report, not as a validated performance claim.
+- Frame the paper as a methodological and computational-prototype report, not as a validated performance claim.
   
 \end{abstract}
 
@@ -167,148 +167,43 @@ XVII ECTM – Encontro de Ciência e Tecnologia de Materiais\\
 
 \subsection{Biosensors and the bioreceptor-selection problem}
 
-A biosensor can be understood as an analytical device that couples a
-biological recognition mechanism to a signal-transduction mechanism.
-The biological component is responsible for interacting with the
-analyte of interest, while the transducer converts that interaction
-into a measurable signal. In this work, we use the terms
-\emph{bioreceptor} and \emph{biorecognition element} in this general
-sense. Common examples include enzymes, antibodies, aptamers,
-receptors, and other biomolecular structures capable of selective
-molecular recognition
-\citep{eggins96:_biosen,banica12:_chemic_sensor_biosen,morales18:_guide_selec_biorec_elemen_biosen}.
-The nature of this recognition element strongly influences the
-sensitivity, selectivity, reproducibility, and practical applicability
-of the resulting biosensor.
+\begin{itemize}
+  \item Explain that biosensors rely on a biorecognition element capable of interacting selectively with the analyte of interest. Examples include enzymes, antibodies, aptamers, receptors, and other biomolecular recognition structures.
 
-Selecting a suitable bioreceptor is therefore one of the central
-design decisions in biosensor development. This decision is not merely
-a matter of choosing a molecule that can bind the analyte: the
-candidate must also be compatible with immobilization, signal
-generation, stability requirements, sample conditions, and the
-intended sensing platform. Enzyme-based biosensors, immunosensors, and
-aptamer-based sensors offer different advantages and limitations, but
-each case still requires the identification of a recognition mechanism
-that is selective enough for the target application
-\citep{marques08:_bioss,morales18:_guide_selec_biorec_elemen_biosen}.
+  \item Emphasize that selecting a suitable bioreceptor is a critical step in biosensor development. This choice is especially difficult for small molecules, for analytes with scarce experimental data, and for sensing problems where the relevant biological interactions are not obvious.
 
-The broader BioSensIA project addresses this problem as a
-computational discovery task. Given an analyte molecule, the goal is
-to identify proteins, protein domains, binding pockets, or other
-biomolecular structures that may interact with it and therefore
-deserve further investigation as candidate bioreceptors. In this
-formulation, the computational system is not expected to replace
-experimental validation. Rather, it is intended to reduce the search
-space: instead of manually inspecting many unrelated biological
-databases and structural records, the user receives a prioritized list
-of candidates that can be examined with additional structural,
-biochemical, and bibliographic evidence. This ranking-oriented view is
-particularly useful when the biological interactions relevant to
-sensing are not already obvious from the literature.
+  \item Present the computational problem addressed by BioSensIA: given an analyte molecule, identify proteins, protein domains, binding pockets, or biomolecular structures that may interact with it and therefore deserve investigation as candidate bioreceptors.
 
-BioSensIA-DC is one computational component of this broader workflow.
-It focuses on the structural target-fishing step: given a query
-molecule, it ranks candidate protein pockets according to a learned
-compatibility score. The prototype is based on DrugCLIP, a contrastive
-representation-learning model originally proposed for virtual
-screening, and on Uni-Mol-style three-dimensional molecular and pocket
-representations \citep{gao23:_drugc,zhou23:_uni_mol}. BioSensIA-DC
-uses DrugCLIP as a representation-learning foundation, but extends it
-with a new target-fishing workflow, data organization strategy, and
-retrieval implementation. In the original
-virtual-screening direction, a protein pocket is used as a query to
-rank molecules. BioSensIA-DC uses the same molecule--pocket
-compatibility idea in the reverse direction: the molecule becomes the
-query, and protein pockets become the candidates to be ranked. The
-resulting ranked list is intended to support bioreceptor discovery,
-not to provide a definitive proof of binding or biosensor performance.
+  \item Explain that BioSensIA-DC is one computational component of this broader project. Its role is to rank candidate protein pockets for a query molecule using learned molecular and pocket representations.
+\end{itemize}
+
+\subsection{Motivating example: okadaic acid}
+
+\begin{itemize}
+  \item Introduce okadaic acid as a motivating analyte because of its relevance to diarrhetic shellfish poisoning and marine-toxin monitoring.
+
+  \item Explain that okadaic acid is known to interact with serine/threonine phosphatases, especially PP2A, and that structural data exist for PP2A--okadaic-acid complexes.
+
+  \item Use this example to motivate target fishing in the biosensor context: if a molecule is known or suspected to bind a biomolecular structure, a computational system that ranks possible targets may help guide the search for biorecognition elements.
+
+  \item Make clear that the prototype is not limited to okadaic acid. The intended input is any query molecule for which a user wants to explore plausible protein-pocket candidates.
+\end{itemize}
 
 \subsection{Virtual screening, target fishing, and representation learning}
 
-Virtual screening and target fishing are closely related computational
-tasks, but they differ in the direction of the query. In
-structure-based virtual screening, the starting point is usually a
-biological target, often represented by a protein binding pocket, and
-the goal is to rank molecules from a candidate library according to
-their predicted compatibility with that target. In target fishing, the
-direction is reversed: the starting point is a molecule, and the goal
-is to identify proteins, protein domains, binding sites, or other
-biological targets that may interact with it. In both cases, the
-practical output is a ranked list, but the biological interpretation
-is different. Virtual screening asks which molecules may bind a given
-target; target fishing asks which targets may bind a given molecule.
+\begin{itemize}
+  \item Define virtual screening as the task in which a target, usually a protein pocket, is used as a query to rank candidate molecules.
 
-Several \emph{in silico} target-fishing strategies have been proposed,
-including ligand-based, receptor-based, pharmacophore-based,
-docking-based, and machine-learning approaches
-\citep{galati21:_recen_advan_in_silic_target_fishin}. PharmMapper is a
-representative example of reverse pharmacophore mapping. Given a query
-compound, it searches for good alignments between the compound and a
-database of pharmacophore models associated with protein targets
-\citep{liu10:_pharm}. Its updated version expanded the target
-pharmacophore database and introduced statistically meaningful ranking
-scores for the identified targets \citep{wang17:_pharm}. In simplified
-terms, PharmMapper asks whether the three-dimensional arrangement of
-chemical features in the query molecule can be fitted to pharmacophore
-patterns known or inferred for possible targets.
+  \item Define target fishing as the reverse task: a molecule is used as a query, and candidate targets, proteins, or pockets are ranked according to their predicted compatibility with that molecule.
 
-SwissTargetPrediction follows a different principle. It predicts
-probable targets of a small molecule by comparing the query compound
-to molecules with known bioactivity data. The method is based on the
-similarity principle: molecules that are similar in two-dimensional or
-three-dimensional chemical space are more likely to share biological
-targets \citep{daina19:_swiss}. Thus, while PharmMapper is primarily
-organized around reverse matching against pharmacophore models,
-SwissTargetPrediction is organized around ligand similarity to
-compounds with experimentally known target annotations. Both tools are
-valuable references for BioSensIA because they address the same broad
-question: given a molecule, which biological targets should be
-considered plausible?
+  \item Briefly mention established target-fishing approaches such as reverse pharmacophore mapping and ligand-similarity-based prediction. These methods provide conceptual baselines for the task, even though BioSensIA-DC follows a different representation-learning approach.
 
-BioSensIA-DC differs from these tools in its representation-learning
-formulation. Instead of matching a query molecule against an explicit
-pharmacophore database, as in PharmMapper, or inferring targets from
-similarity to known ligands, as in SwissTargetPrediction, \emph{BioSensIA-DC
-uses a learned compatibility model between molecules and protein
-pockets}. Its starting point is DrugCLIP, a contrastive learning model
-that represents molecules and protein pockets with separate encoders
-and trains them so that compatible molecule--pocket pairs are close in
-a shared latent space \citep{gao23:_drugc}. DrugCLIP formulates
-virtual screening as a dense-retrieval problem: a pocket is encoded as
-a query vector, molecules are encoded as candidate vectors, and
-ranking is performed by comparing these vectors.
+  \item Introduce DrugCLIP as a contrastive model that learns compatible representations of protein pockets and molecules. DrugCLIP formulates virtual screening as dense retrieval.
 
+  \item Introduce Uni-Mol as the 3D molecular representation framework used by DrugCLIP for molecules and pockets.
 
-The encoders used by DrugCLIP are based on Uni-Mol, a
-three-dimensional molecular representation-learning framework that
-incorporates atom types and atomic coordinates
-\citep{zhou23:_uni_mol}. A key feature of Uni-Mol is that it is
-designed to respect the geometry of molecular structures: its internal
-pair representations are built from interatomic distances, which are
-invariant to global translations and rotations of the molecule or
-pocket. At the same time, Uni-Mol includes an equivariant
-coordinate-prediction mechanism, so that when coordinates are
-predicted or updated, they transform consistently under rotations and
-translations of the input structure. In practical terms, this means
-that the representation is sensitive to the relative three-dimensional
-arrangement of atoms, but not to arbitrary choices of
-coordinate-system origin or orientation. 
-
-The central idea behind BioSensIA-DC is that the similarity score
-learned by DrugCLIP can be used in the reverse direction. If DrugCLIP
-can assign a compatibility score to a molecule--pocket pair for
-virtual screening, then the same score can be used to rank pockets for
-a fixed molecule. However, BioSensIA-DC is not merely a direct
-execution of the original DrugCLIP workflow. DrugCLIP provides the
-initial molecule--pocket representation framework, but the
-target-fishing formulation, candidate-pocket preparation, query
-construction, molecule-to-pocket retrieval pipeline, and initial
-diagnostic evaluation workflow were conceptualized and implemented
-from scratch as part of this work. The resulting prototype therefore
-adapts a virtual-screening representation model to the
-biosensor-oriented problem of prioritizing candidate bioreceptors for
-a query analyte.
-
+  \item Explain the central idea behind BioSensIA-DC: because DrugCLIP learns a similarity score between molecules and pockets, the same score can be used in the reverse direction for target fishing.
+\end{itemize}
 
 \subsection{Objectives and contributions}
 
