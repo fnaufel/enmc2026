@@ -81,7 +81,16 @@ XVII ECTM – Encontro de Ciência e Tecnologia de Materiais\\
 }}
 }
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PACOTES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
 % INÍCIO DO DOCUMENTO
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -341,36 +350,72 @@ must be resolved before predictive performance can be assessed.
 
 \subsection{Overview of the BioSensIA-DC workflow}
 
-\begin{itemize}
-  \item Describe BioSensIA-DC as a prototype derived from DrugCLIP, with additional code for the target-fishing direction.
+BioSensIA-DC implements a molecule-to-pocket retrieval workflow for
+target fishing. The input is one or more query molecules, and the
+output is a ranked list of candidate protein pockets. The workflow
+reuses the molecule and pocket encoders from DrugCLIP, but reverses
+the practical direction of retrieval: instead of using a pocket to
+rank molecules, it uses a molecule to rank pockets.
 
-  \item Present the general workflow:
-  \begin{enumerate}
-    \item receive one or more query molecules;
-    \item build or load a DrugCLIP-compatible molecule LMDB file;
-    \item build or load a candidate-pocket LMDB file;
-    \item encode molecules and pockets using the DrugCLIP encoders;
-    \item compute molecule-pocket similarity scores;
-    \item rank candidate pockets by score;
-    \item save the ranked list for downstream analysis.
-  \end{enumerate}
+The candidate protein pockets are stored in a library, which can be
+encoded once and cached for later searches. During retrieval,
+BioSensIA-DC encodes the query molecule, loads or computes the
+candidate-pocket embeddings, calculates molecule--pocket similarity
+scores, and sorts the candidate pockets by these scores.
+Figure~\ref{fig:biosensia-dc-workflow} illustrates this workflow.
 
-  \item Include a schematic figure showing the molecule-to-pocket direction:
-  \begin{itemize}
-    \item query molecule on the left;
-    \item molecule encoder;
-    \item cached candidate-pocket embeddings;
-    \item similarity computation;
-    \item ranked list of protein pockets on the right.
-  \end{itemize}
+The resulting ranked list is saved for downstream analysis. Each entry
+contains a candidate pocket identifier and a compatibility score. This
+score is used only for ranking; it should not be interpreted as a
+calibrated binding affinity or as a direct physical measurement.
 
-  \item Mention the public repository:
-  \begin{itemize}
-    \item \url{https://github.com/fnaufel/BioSensIA-DC}
-  \end{itemize}
+\begin{figure}[htbp]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  node distance=1.1cm and 1.15cm,
+  box/.style={
+    draw,
+    rounded corners,
+    align=center,
+    minimum width=2.75cm,
+    minimum height=0.82cm,
+    font=\small
+  },
+  arrow/.style={-{Latex[length=2mm]}, thick}
+]
 
-  \item Explain that the repository contains source code, installation instructions, retrieval scripts, target-fishing scripts, and an initial benchmarking workflow.
-\end{itemize}
+% Molecule branch
+\node[box] (molinput) {Query\\molecule(s)};
+\node[box, right=of molinput] (molenc) {Molecule\\encoder};
+\node[box, right=of molenc] (molemb) {Query\\embedding};
+
+% Pocket branch
+\node[box, below=1.25cm of molinput] (pocketlmdb) {Candidate-pocket\\library};
+\node[box, right=of pocketlmdb] (pocketenc) {Pocket\\encoder};
+\node[box, right=of pocketenc] (pocketemb) {Cached pocket\\embeddings};
+
+% Shared scoring and output
+\node[box, right=1.35cm of pocketemb, yshift=0.62cm] (sim) {Similarity\\computation};
+\node[box, right=of sim] (ranked) {Ranked list of\\candidate pockets};
+
+% Arrows
+\draw[arrow] (molinput) -- (molenc);
+\draw[arrow] (molenc) -- (molemb);
+
+\draw[arrow] (pocketlmdb) -- (pocketenc);
+\draw[arrow] (pocketenc) -- (pocketemb);
+
+\draw[arrow] (molemb) -- (sim);
+\draw[arrow] (pocketemb) -- (sim);
+\draw[arrow] (sim) -- (ranked);
+
+\end{tikzpicture}%
+}
+
+\caption{Overview of the BioSensIA-DC target fishing workflow. Query molecules are encoded and compared with cached candidate-pocket embeddings to produce a ranked list of protein pockets.}
+\label{fig:biosensia-dc-workflow}
+\end{figure}
 
 \subsection{Base model: DrugCLIP and Uni-Mol}
 
