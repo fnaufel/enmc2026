@@ -115,6 +115,8 @@ XVII ECTM – Encontro de Ciência e Tecnologia de Materiais\\
 
 \begin{abstract}
 
+  ???.
+  
 % To be written after the main text.
 % Suggested content:
 
@@ -309,27 +311,31 @@ adapts a virtual-screening representation model to the
 biosensor-oriented problem of prioritizing candidate bioreceptors for
 a query analyte.
 
-
 \subsection{Objectives and contributions}
 
-\begin{itemize}
-  \item State the main objective of the paper: to describe BioSensIA-DC, an open computational prototype that extends DrugCLIP for molecule-to-pocket target fishing in the context of bioreceptor discovery.
+This paper describes BioSensIA-DC, a computational prototype for
+molecule-to-pocket target fishing in the context of bioreceptor
+discovery. The prototype extends the DrugCLIP representation framework
+beyond its original virtual-screening workflow. Instead of ranking
+molecules for a fixed protein pocket, BioSensIA-DC ranks candidate
+protein pockets for a fixed query molecule, producing a prioritized
+list of structural candidates for further investigation.
 
-  \item List the implemented contributions:
-  \begin{itemize}
-    \item construction of a candidate-pocket LMDB file from DrugCLIP-compatible data;
-    \item construction of query-molecule LMDB files from SMILES strings, local DrugCLIP identifiers, PubChem CIDs, or compound names;
-    \item implementation of molecule-to-pocket retrieval;
-    \item generation of ranked pocket lists with compatibility scores;
-    \item implementation of an initial benchmarking and diagnostic workflow;
-    \item documentation of installation and execution steps in a public repository.
-  \end{itemize}
+The implemented contributions include the construction of
+candidate-pocket files from DrugCLIP-compatible data, the construction
+of query-molecule files from SMILES strings, local DrugCLIP
+identifiers, PubChem CIDs, or compound names, and the implementation
+of molecule-to-pocket retrieval. The prototype also generates ranked
+pocket lists with compatibility scores, and provides an initial
+benchmarking and diagnostic workflow.
 
-  \item State the main limitation upfront: suitable benchmark validation has not yet been completed, and the preliminary benchmark results are poor both for the fine-tuned BioSensIA-DC model and for the original DrugCLIP model under the current local evaluation setup.
-
-  \item Explain how the paper should therefore be interpreted: as a computational-prototype and methodology paper, not as evidence that the current model is already a reliable target-fishing predictor.
-\end{itemize}
-
+The present work should be read as a computational-prototype and
+methodology paper. Suitable benchmark validation has not yet been
+completed. Therefore, no claim is made that the current model is
+already a reliable target-fishing predictor. Instead, the paper
+reports the implemented workflow, the conceptual adaptation from
+virtual screening to target fishing, and the diagnostic issues that
+must be resolved before predictive performance can be assessed.
 
 \section{METHODOLOGY}
 
