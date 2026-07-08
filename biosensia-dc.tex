@@ -87,8 +87,7 @@ XVII ECTM – Encontro de Ciência e Tecnologia de Materiais\\
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta, positioning}
-
+\usetikzlibrary{arrows.meta, positioning, calc}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
 % INÍCIO DO DOCUMENTO
@@ -373,12 +372,12 @@ calibrated binding affinity or as a direct physical measurement.
 \centering
 \resizebox{\linewidth}{!}{%
 \begin{tikzpicture}[
-  node distance=1.1cm and 1.15cm,
+  node distance=1.1cm and 0.75cm,
   box/.style={
     draw,
     rounded corners,
     align=center,
-    minimum width=2.75cm,
+    minimum width=2.55cm,
     minimum height=0.82cm,
     font=\small
   },
@@ -391,19 +390,21 @@ calibrated binding affinity or as a direct physical measurement.
 \node[box, right=of molenc] (molemb) {Query\\embedding};
 
 % Pocket branch
-\node[box, below=1.25cm of molinput] (pocketlmdb) {Candidate-pocket\\library};
-\node[box, right=of pocketlmdb] (pocketenc) {Pocket\\encoder};
+\node[box, below=1.25cm of molinput] (pocketlib) {Candidate-pocket\\library};
+\node[box, right=of pocketlib] (pocketenc) {Pocket\\encoder};
 \node[box, right=of pocketenc] (pocketemb) {Cached pocket\\embeddings};
 
 % Shared scoring and output
-\node[box, right=1.35cm of pocketemb, yshift=0.62cm] (sim) {Similarity\\computation};
-\node[box, right=of sim] (ranked) {Ranked list of\\candidate pockets};
+\node[box] (sim) at ($(molemb)!0.5!(pocketemb)+(3.5cm,0)$)
+  {Similarity\\computation};
+\node[box, right=0.75cm of sim] (ranked)
+  {Ranked list of\\candidate pockets};
 
 % Arrows
 \draw[arrow] (molinput) -- (molenc);
 \draw[arrow] (molenc) -- (molemb);
 
-\draw[arrow] (pocketlmdb) -- (pocketenc);
+\draw[arrow] (pocketlib) -- (pocketenc);
 \draw[arrow] (pocketenc) -- (pocketemb);
 
 \draw[arrow] (molemb) -- (sim);
@@ -419,128 +420,96 @@ calibrated binding affinity or as a direct physical measurement.
 
 \subsection{Base model: DrugCLIP and Uni-Mol}
 
-\begin{itemize}
-  \item Describe DrugCLIP as a two-tower architecture:
-  \begin{itemize}
-    \item one encoder maps molecules to latent vectors;
-    \item the other encoder maps protein pockets to latent vectors;
-    \item a similarity score compares the two vectors.
-  \end{itemize}
+As Fig.~\ref{fig:biosensia-dc-workflow} shows, DrugCLIP uses a
+\emph{two-tower} architecture to represent molecule--pocket
+compatibility \citep{gao23:_drugc}. One encoder maps each molecule to
+a latent vector, while a second encoder maps each protein pocket to
+another latent vector. The compatibility of a molecule--pocket pair is
+then computed by a similarity score between these two vectors, such as
+an inner product or cosine similarity.
 
-  \item Explain that both encoders are based on Uni-Mol-style 3D representations, using atom types and atomic coordinates.
+Both encoders follow the Uni-Mol style of three-dimensional
+representation learning, in which the input is built from atom types
+and atomic coordinates rather than only from one-dimensional sequences
+or two-dimensional molecular graphs \citep{zhou23:_uni_mol}. This
+allows the model to represent the local geometry of molecules and
+protein pockets, which is essential when compatibility depends
+on the three-dimensional arrangement of atoms.
 
-  \item Define the conceptual similarity score:
-  \begin{equation}
-  s(p,m) = g_{\phi}(x^p)^{T} f_{\theta}(x^m)
-  \end{equation}
+Mathematically, we have the similarity score $s(p, m)$ defined as the
+scalar product
+\begin{equation}
+  \label{eq:score}
+  s(p,m) = g_{\phi}(x^p)^{T} \cdot f_{\theta}(x^m)
+\end{equation}
+where \(p\) denotes a protein pocket, \(m\) denotes a molecule, and
+\(x^p\) and \(x^m\) denote their input representations. Furthermore,
+\(g_{\phi}\) is the pocket encoder (parameterized by a set $\phi$ of
+parameters), and \(f_{\theta}\) is the molecule encoder (parameterized
+by a set $\theta$ of parameters). In the current DrugCLIP
+implementation, both $g_{\phi}(x^p)$ and $f_{\theta}(x^m)$ are
+128-dimensional vectors.
 
-  \item Explain the notation:
-  \begin{itemize}
-    \item \(p\) denotes a protein pocket;
-    \item \(m\) denotes a molecule;
-    \item \(x^p\) and \(x^m\) denote their input representations;
-    \item \(g_{\phi}\) is the pocket encoder;
-    \item \(f_{\theta}\) is the molecule encoder;
-    \item \(s(p,m)\) is a compatibility score, not a calibrated binding affinity.
-  \end{itemize}
+Figure~\ref{fig:dc-training} illustrates how DrugCLIP is trained:
+both encoders generate embeddings for \emph{positive} pairs
+$(x_i^p, x_i^m)$ and \emph{negative} pairs $(x_i^p, x_j^m), i\neq j$,
+each pair containing a pocket and a molecule. Here, ``positive'' means
+having evidence of chemical affinity, and ``negative'' means lacking
+such evidence. Similarity scores are computed for each pair in the
+batch and a \emph{loss function} is applied in order to modify the
+sets of trainable parameters $\phi$ and $\theta$ of the encoders.
 
-  \item Explain that virtual screening ranks molecules for a fixed pocket:
-  \begin{equation}
-  p \rightarrow \{m_1,m_2,\ldots,m_n\}
-  \end{equation}
+\begin{figure}[htbp]
+\centering
 
-  \item Explain that target fishing reverses the retrieval direction:
-  \begin{equation}
-  m \rightarrow \{p_1,p_2,\ldots,p_n\}
-  \end{equation}
+\includegraphics[width=.75\linewidth]{drugclip}
 
-  \item Emphasize that BioSensIA-DC preserves the DrugCLIP model architecture and changes the surrounding data preparation, retrieval, and fine-tuning workflow.
-\end{itemize}
+\caption{Overview of the DrugCLIP training process. Adapted from
+  \citep{gao23:_drugc}.}
+\label{fig:dc-training}
+\end{figure}
 
-\subsection{Data organization and LMDB files}
+Formally, the DrugCLIP loss function has two terms: in a batch of $N$
+pairs, the \emph{pocket-to-mol loss} for pocket $x_k^p$ is defined as
+\begin{equation}
+  \label{eq:original-p2m-loss}
+  \mathcal{L}_k^{p} (x_k^p, \{ x_i^m \}_{i=1}^N) =
+  -\log
+  \frac{
+    \exp(s(x_k^p, x_k^m)/\tau)
+  }{
+    \sum_i \exp(s(x_k^p, x_i^m)/\tau)
+  }
+\end{equation}
+and the \emph{mol-to-pocket loss} for molecule $x_k^m$ is defined as
+\begin{equation}
+  \label{eq:original-m2p-loss}
+  \mathcal{L}_k^{m} = (x_k^m, \{ x_i^p \}_{i=1}^N) =
+  -\log
+  \frac{
+    \exp(s(x_k^p, x_k^m)/\tau)
+  }{
+    \sum_i \exp(s(x_i^p, x_k^m)/\tau)
+  }
+\end{equation}
+where $s(\cdot, \cdot)$ is defined in Eq.(\ref{eq:score}) and $\tau$
+is a hyperparameter (called \emph{temperature}) that controls the
+smoothness of the softmax distribution. The final loss for a batch
+(which training seeks to minimize) is then
+\begin{equation}
+  \label{eq:original-loss}
+  \mathcal{L} = 
+  \frac{1}{2}
+  \sum_{k=1}^N
+  \left(
+    \mathcal{L}_k^{p} + \mathcal{L}_k^{m}
+  \right)
+\end{equation}
 
-\begin{itemize}
-  \item Explain that DrugCLIP stores molecules and pockets in LMDB files, with atom types, coordinates, and auxiliary identifiers.
+The definitions above are important for the following section, where
+we describe the modifications we applied to the training procedure in
+order to fine-tune the model for the target-fishing problem.
 
-  \item Describe the original DrugCLIP data organization:
-  \begin{itemize}
-    \item molecule libraries for virtual screening;
-    \item pocket data extracted from protein-ligand complexes;
-    \item model checkpoints;
-    \item atom dictionaries;
-    \item cached embeddings.
-  \end{itemize}
-
-  \item Explain why target fishing requires a different organization: pockets become the candidate library, while molecules become the query objects.
-
-  \item Describe the candidate-pocket LMDB construction:
-  \begin{itemize}
-    \item read DrugCLIP-compatible structural records;
-    \item extract pocket entries;
-    \item preserve PDB identifiers;
-    \item write a new LMDB containing candidate pockets;
-    \item allow later embedding precomputation and caching.
-  \end{itemize}
-
-  \item Describe the query-molecule LMDB construction:
-  \begin{itemize}
-    \item accept SMILES strings directly;
-    \item accept local DrugCLIP molecule identifiers;
-    \item accept PubChem CIDs;
-    \item accept PubChem compound names;
-    \item convert the query into a DrugCLIP-compatible LMDB record.
-  \end{itemize}
-
-  \item Discuss molecular-standardization issues that must be handled carefully:
-  \begin{itemize}
-    \item salts versus parent compounds;
-    \item tautomeric forms;
-    \item stereochemistry;
-    \item conformer generation;
-    \item consistency between training, query, and benchmark data.
-  \end{itemize}
-\end{itemize}
-
-\subsection{Target-fishing retrieval implementation}
-
-\begin{itemize}
-  \item Identify the main implemented modules:
-  \begin{itemize}
-    \item \texttt{biosensia\_target\_fishing.py};
-    \item \texttt{biosensia\_retrieval.py};
-    \item \texttt{lmdb\_helpers.py};
-    \item \texttt{biosensia\_target\_fishing\_benchmark.py}.
-  \end{itemize}
-
-  \item Describe the retrieval procedure:
-  \begin{enumerate}
-    \item load query molecules from an LMDB file;
-    \item load candidate pockets from an LMDB file;
-    \item encode query molecules;
-    \item encode candidate pockets or reuse cached pocket embeddings;
-    \item compute the similarity matrix;
-    \item rank pockets by compatibility with the query molecule;
-    \item write the ranked output to a tabular file.
-  \end{enumerate}
-
-  \item Explain how cached embeddings reduce repeated computation. When the same candidate-pocket library is reused, only the query molecules need to be newly encoded.
-
-  \item Explain that the output score should be interpreted as a ranking score. It is not a binding free energy, an inhibition constant, or a direct physical measurement.
-
-  \item Include a planned example command or code fragment:
-  \begin{verbatim}
-import biosensia_target_fishing as tf
-
-tf.create_mol_lmdb("okadaic acid", "data/oka.lmdb")
-tf.build_candidate_pockets_lmdb("data/candidate_pockets.lmdb")
-  \end{verbatim}
-
-  \item Include another planned example for running retrieval:
-  \begin{verbatim}
-cd external/DrugCLIP
-./target_fishing.sh
-  \end{verbatim}
-\end{itemize}
 
 \subsection{Fine-tuning formulation for target fishing}
 
