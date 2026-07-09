@@ -53,12 +53,15 @@
 \author{
 \rm
 \begin{tabular}{l}
-\textbf{First Author}$^{1}$ - {\textnormal e-mail}\\
-\textbf{Second Author}$^{2}$ - {\textnormal e-mail}\\
-\textbf{Third Author}$^{3}$ - {\textnormal e-mail}\\
-{\fontsize{11}{0}\selectfont $^{1}$Universidade Federal do Rio Grande – Rio Grande – RS}\\
-{\fontsize{11}{0}\selectfont $^{2}$Universidade Federal do Rio Grande – Santo Antônio da Patrulha – RS}\\
-{\fontsize{11}{0}\selectfont $^{3}$Universidade Federal do Rio Grande – São Lourenço do Sul – RS}
+\textbf{Fernando Náufel do Amaral}$^{1}$ - {\textnormal fnaufel@id.uff.br}\\
+\textbf{???}$^{2}$ - {\textnormal ???}\\
+\textbf{???}$^{3}$ - {\textnormal ???}\\
+\textbf{???}$^{4}$ - {\textnormal ???}\\
+{\fontsize{11}{0}\selectfont $^{1}$Universidade Federal Fluminense –
+  Rio das Ostras – RJ}\\
+{\fontsize{11}{0}\selectfont $^{2}$???}\\
+{\fontsize{11}{0}\selectfont $^{3}$???}\\
+{\fontsize{11}{0}\selectfont $^{4}$???}
 \end{tabular}
 }
 
@@ -123,22 +126,24 @@ XVII ECTM – Encontro de Ciência e Tecnologia de Materiais\\
 
 \begin{abstract}
 
-  ???.
-  
-% To be written after the main text.
-% Suggested content:
-
-% - Introduce BioSensIA as a project aimed at supporting the discovery of biorecognition elements for biosensors.
-
-% - Present BioSensIA-DC as a computational prototype for target fishing: given a query molecule, rank candidate protein pockets.
-
-% - Explain that the prototype adapts DrugCLIP, originally designed for virtual screening, to the reverse direction: molecule-to-pocket retrieval.
-
-% - Highlight implementation contributions: construction of candidate-pocket LMDB files, query-molecule LMDB files, molecule lookup via SMILES/PubChem, target-fishing retrieval, and an initial benchmarking workflow.
-
-% - State clearly that the current quantitative results are preliminary and unsatisfactory, including for the original DrugCLIP model in the local evaluation setup.
-
-% - Frame the paper as a methodological and computational-prototype report, not as a validated performance claim.
+  This paper presents BioSensIA-DC, a computational prototype for
+  molecule-to-pocket target fishing in the context of
+  biosensor-oriented bioreceptor discovery. BioSensIA-DC builds on the
+  representation framework of DrugCLIP, a contrastive model originally
+  designed for virtual screening, but reverses the retrieval
+  direction: given a query molecule, the system ranks candidate
+  protein pockets according to a learned compatibility score. The
+  prototype implements candidate-pocket library construction,
+  query-molecule preparation, molecule-to-pocket retrieval, ranked
+  output generation, and an initial diagnostic workflow.
+  % Okadaic acid,
+  % a marine toxin relevant to ecotoxicology and diarrhetic shellfish
+  % poisoning, is used as a preliminary study case.
+  The paper also discusses the importance of curating suitable pocket
+  libraries, since PDB-complex-level identifiers introduce redundancy
+  and may distort benchmark interpretation. The current work is
+  presented as a methodological and computational-prototype report,
+  not as a validated performance claim.
   
 \end{abstract}
 
@@ -437,7 +442,7 @@ protein pockets, which is essential when compatibility depends
 on the three-dimensional arrangement of atoms.
 
 Mathematically, we have the similarity score $s(p, m)$ defined as the
-scalar product
+inner product
 \begin{equation}
   \label{eq:score}
   s(p,m) = g_{\phi}(x^p)^{T} \cdot f_{\theta}(x^m)
@@ -561,6 +566,11 @@ the form
     0, & \text{otherwise}
   \end{cases}
 \end{equation}
+
+Note that while in DrugCLIP the similarity matrix was always square,
+in BioSensIA-DC the similarity matrix and the positive-pair mask are
+usually rectangular, because the same molecule may be associated with
+more than one pocket.
 
 \subsubsection{Multi-positive molecule-to-pocket loss.}
 \label{sec:multi-posit-mol}
@@ -698,11 +708,194 @@ molecule-to-pocket retrieval in practice.
 
 \section{RESULTS AND DISCUSSION}
 
-???
+\subsection{Study case: okadaic acid}
+\label{sec:study-case-oka}
+
+The first study case considered in BioSensIA-DC is okadaic acid, a
+marine toxin relevant to ecotoxicology and to the monitoring of
+diarrhetic shellfish poisoning. This choice is motivated by an ongoing
+ecotoxicology project concerned with the detection of marine toxins
+and other environmentally relevant analytes
+\citep{souza25:_first_recor_diarr_shell_poison}. In this context,
+okadaic acid is a useful test case because it is a small molecule of
+environmental and public-health interest, and because it has known
+protein targets that can be used to interpret preliminary
+target-fishing results.
+
+The biological reference point for this case is the interaction
+between okadaic acid and serine/threonine protein phosphatases,
+especially PP2A. The availability of structural information for
+okadaic-acid--phosphatase complexes makes this molecule suitable for a
+first qualitative analysis of the BioSensIA-DC workflow. 
+
+Using okadaic acid as the query molecule, BioSensIA-DC produced a
+preliminary ranked list of one thousand candidate pockets. This list
+will be analyzed in terms of the presence of known phosphatase-related
+structures, structurally plausible candidates, and unexpected
+high-ranking pockets that may deserve further investigation. The list
+is preliminary and should be interpreted as a diagnostic output of the
+prototype rather than as evidence of validated predictive performance.
+
+\subsection{Building a suitable pocket library}
+\label{sec:building-pocket-library}
+
+The usefulness of BioSensIA-DC depends not only on the
+molecule--pocket similarity model, but also on the library of
+candidate pockets against which a query molecule is compared. In the
+current implementation, the initial candidate-pocket library is
+derived from the structural data distributed with DrugCLIP. This was a
+natural starting point, because these records are already compatible
+with the DrugCLIP encoders and can be converted into the format used
+by the retrieval scripts. However, this initial library was inherited
+from a training and virtual-screening workflow, not designed from the
+beginning as a curated target-fishing library.
+
+A first limitation is that the current candidate pockets are
+identified mainly by PDB complex identifiers. For example, a pocket
+may appear in the output under the identifier of a particular PDB
+structure, such as 2ie4. This is useful for tracing the structure back
+to its original coordinates, but it is not the most appropriate level
+of biological organization for target fishing. In a ranked
+target-fishing result, the user usually wants to know whether the
+query molecule is associated with a protein, a protein family, or a
+binding site. A PDB complex identifier is more specific than that: the
+same protein may appear in several structures, with different ligands,
+mutations, chains, resolutions, or crystallographic contexts. As a
+result, several entries in the ranked list may correspond to
+essentially the same biological target.
+
+% This redundancy affects interpretation. If several PDB structures
+% represent the same protein or the same binding site, the ranked list
+% may appear to contain many independent high-scoring candidates when it
+% is actually repeating the same biological signal. Conversely, a
+% relevant biological target may be fragmented across several
+% structure-level identifiers. For a user interested in bioreceptor
+% discovery, this is inconvenient: the result should ideally be
+% interpretable at several levels, including structure, pocket, protein,
+% gene, domain, and family.
+
+The same issue also affects benchmarking. In an exact-identifier
+benchmark, a prediction may be counted as correct only when the
+expected PDB complex appears among the top-ranked entries. But if the
+model retrieves a different PDB structure of the same protein, or a
+closely related structure representing the same binding site, the
+result may be biologically meaningful while still being counted as a
+false negative.
+
+% This is particularly important in the present work
+% because the preliminary benchmark results are poor even for the
+% original DrugCLIP model under the current local evaluation setup. One
+% possible explanation is that the evaluation protocol is too closely
+% tied to structure-level identifiers, whereas the biological
+% target-fishing problem requires aggregation by protein, site, or
+% family.
+
+For this reason, a major next step is to replace the inherited
+candidate-pocket library with a curated local dataset designed
+specifically for BioSensIA-DC. This dataset should keep the atomic
+coordinates required by the encoder, but it should also store richer
+metadata for each pocket.
+
+% At minimum, each entry should include the
+% original structure identifier, chain, residue selection, ligand or
+% template used to define the site, protein accession when available,
+% organism, gene name, and links to external databases. It should also
+% include grouping fields that allow results to be aggregated by
+% identical protein, homologous protein, binding site, protein family,
+% or user-defined target class.
+
+Several sources can contribute to this local library. A conservative
+layer can be built from experimentally determined protein--ligand
+complexes in the Protein Data Bank, available through RCSB PDB at
+\url{https://www.rcsb.org/}. PDBbind, available at
+\url{https://www.pdbbind-plus.org.cn/}, provides processed
+protein--ligand complex structures that are commonly used in
+binding-affinity and docking studies. BioLiP/BioLiP2, available at
+\url{https://zhanggroup.org/BioLiP/}, provides semi-manually curated
+biologically relevant ligand--protein interactions derived mainly from
+PDB structures. The sc-PDB database, available at
+\url{https://bioinfo-pharma.u-strasbg.fr/scPDB/}, is another relevant
+source because it is organized around druggable binding sites
+extracted from the Protein Data Bank.
+
+% Binding MOAD, available at
+% \url{http://www.bindingmoad.org/}, is also relevant as a curated
+% protein--ligand complex resource, although its update status and
+% licensing should be checked before integration.
+
+A less conservative but broader layer can be obtained by starting from
+protein structures that do not necessarily have a co-crystallized
+ligand for the analyte of interest. In this case, pockets must be
+predicted from the protein structure. Tools such as fpocket
+(\url{https://bioserv.rpbs.univ-paris-diderot.fr/services/fpocket/})
+and P2Rank (\url{https://github.com/rdk/p2rank}) are appropriate
+candidates for this step. These tools make it possible to define
+candidate pockets even when no ligand-bound structure is available.
+
+An even broader and more speculative layer can be built from
+\emph{predicted} protein structures. AlphaFold DB, available at
+\url{https://alphafold.ebi.ac.uk/}, provides open access to over 200
+\emph{million} predicted protein structures. These structures greatly expand
+the possible search space, including proteins for which no
+experimental structure is available. However, these pockets should be
+clearly labeled as predicted candidates and should not be mixed
+uncritically with experimentally observed ligand-bound pockets.
+
+The long-term goal is therefore not to define a single universal
+pocket library, but to let the user select a library appropriate to
+the question being asked. A conservative search could use only
+experimentally verified ligand-bound pockets from curated structural
+resources. A broader exploratory search could include pockets
+predicted from experimental apo structures or AlphaFold-derived
+structures.
+
+This library design will also improve evaluation. Instead of asking
+only whether a specific PDB identifier is recovered, future benchmarks
+can evaluate retrieval at several levels. A result could be considered
+correct if it retrieves the same structure, the same protein, the same
+binding site, a homologous protein with the same site, or a member of
+the same relevant protein family, depending on the benchmark
+definition. Such an evaluation would better match the biological
+purpose of target fishing and would reduce the number of apparent
+false negatives caused by redundant or overly specific pocket
+identifiers.
+
+% In summary, the candidate-pocket library is not a passive data file.
+% It is part of the scientific definition of the BioSensIA-DC task. The
+% current PDB-complex-centered library is useful for development, but it
+% is not sufficient for robust target-fishing interpretation or
+% benchmarking. A curated, metadata-rich, locally stored library of
+% candidate pockets is therefore a necessary next step toward making
+% BioSensIA-DC useful for biosensor-oriented bioreceptor discovery.
 
 \section{CONCLUSIONS}
 
-???
+This paper presented BioSensIA-DC, a computational prototype for
+molecule-to-pocket target fishing aimed at supporting bioreceptor
+discovery for biosensor development. The prototype adapts the DrugCLIP
+molecule--pocket representation framework to the reverse retrieval
+direction, in which a query molecule is used to rank candidate protein
+pockets.
+% The implemented workflow includes query preparation,
+% candidate-pocket library construction, embedding-based retrieval,
+% ranked output generation, and an initial diagnostic evaluation
+% strategy.
+
+The main contribution of this work is methodological and
+computational. BioSensIA-DC shows how a virtual-screening
+representation model can be reorganized into a target-fishing workflow
+suitable for biosensor-oriented exploration. The okadaic-acid study
+case illustrates how the system can generate a list of structural
+candidates for further analysis.
+
+The present version of BioSensIA-DC should not yet be considered a
+validated predictor of molecule--pocket interactions. Suitable
+benchmark validation remains to be completed, and the construction of
+a curated, metadata-rich pocket library is an essential next step.
+Future work will focus on auditing the evaluation protocol, reducing
+redundancy in candidate-pocket libraries, grouping results by protein
+and binding site, and comparing BioSensIA-DC with established
+target-fishing tools and docking-based validation.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Acknowledgements and AI disclosure
