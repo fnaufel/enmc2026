@@ -54,14 +54,12 @@
 \rm
 \begin{tabular}{l}
 \textbf{Fernando Náufel do Amaral}$^{1}$ - {\textnormal fnaufel@id.uff.br}\\
-\textbf{???}$^{2}$ - {\textnormal ???}\\
-\textbf{???}$^{3}$ - {\textnormal ???}\\
-\textbf{???}$^{4}$ - {\textnormal ???}\\
-{\fontsize{11}{0}\selectfont $^{1}$Universidade Federal Fluminense –
-  Rio das Ostras – RJ}\\
-{\fontsize{11}{0}\selectfont $^{2}$???}\\
-{\fontsize{11}{0}\selectfont $^{3}$???}\\
-{\fontsize{11}{0}\selectfont $^{4}$???}
+\textbf{Manildo Marcião de Oliveira}$^{2}$ - {\textnormal manildodpicf@gmail.com}\\
+\textbf{Marcelo Fagundes Felix}$^{3}$ - {\textnormal fagundes@iff.edu.br}\\
+\textbf{Rogerio Atem de Carvalho}$^{3}$ - {\textnormal r.atem@gsuite.iff.edu.br}\\
+{\fontsize{11}{0}\selectfont $^{1}$Departamento de Ciências da Natureza -- Universidade Federal Fluminense}\\
+{\fontsize{11}{0}\selectfont $^{2}$Laboratório de Ecotoxicologia e Microbiologia Ambiental (LEMAM) -- Instituto Federal Fluminense}\\
+{\fontsize{11}{0}\selectfont $^{3}$Polo de Inovação -- Instituto Federal Fluminense}
 \end{tabular}
 }
 
@@ -191,7 +189,7 @@ into a measurable signal. In this work, we use the terms
 sense. Common examples include enzymes, antibodies, aptamers,
 receptors, and other biomolecular structures capable of selective
 molecular recognition
-\citep{eggins96:_biosen,banica12:_chemic_sensor_biosen,morales18:_guide_selec_biorec_elemen_biosen}.
+\citep{morales18:_guide_selec_biorec_elemen_biosen}.
 The nature of this recognition element strongly influences the
 sensitivity, selectivity, reproducibility, and practical applicability
 of the resulting biosensor.
@@ -205,12 +203,12 @@ intended sensing platform. Enzyme-based biosensors, immunosensors, and
 aptamer-based sensors offer different advantages and limitations, but
 each case still requires the identification of a recognition mechanism
 that is selective enough for the target application
-\citep{marques08:_bioss,morales18:_guide_selec_biorec_elemen_biosen}.
+\citep{morales18:_guide_selec_biorec_elemen_biosen}.
 
 The broader BioSensIA project addresses this problem as a
-computational discovery task. Given an analyte molecule, the goal is
-to identify proteins, protein domains, binding pockets, or other
-biomolecular structures that may interact with it and therefore
+\emph{computational discovery} task. Given an analyte molecule, the
+goal is to identify proteins, protein domains, binding pockets, or
+other biomolecular structures that may interact with it and therefore
 deserve further investigation as candidate bioreceptors. In this
 formulation, the computational system is not expected to replace
 experimental validation. Rather, it is intended to reduce the search
@@ -221,24 +219,34 @@ biochemical, and bibliographic evidence. This ranking-oriented view is
 particularly useful when the biological interactions relevant to
 sensing are not already obvious from the literature.
 
-BioSensIA-DC is one computational component of this broader workflow.
-It focuses on the structural target-fishing step: given a query
-molecule, it ranks candidate protein pockets according to a learned
-compatibility score. The prototype is based on DrugCLIP, a contrastive
-representation-learning model originally proposed for virtual
-screening, and on Uni-Mol-style three-dimensional molecular and pocket
-representations \citep{gao23:_drugc,zhou23:_uni_mol}. BioSensIA-DC
-uses DrugCLIP as a representation-learning foundation, but extends it
-with a new target-fishing workflow, data organization strategy, and
-retrieval implementation. In the original
-virtual-screening direction, a protein pocket is used as a query to
-rank molecules. BioSensIA-DC uses the same molecule--pocket
-compatibility idea in the reverse direction: the molecule becomes the
-query, and protein pockets become the candidates to be ranked. The
-resulting ranked list is intended to support bioreceptor discovery,
-not to provide a definitive proof of binding or biosensor performance.
+\subsection{Objectives and contributions}
 
-\subsection{Virtual screening, target fishing, and representation learning}
+This paper describes BioSensIA-DC, a computational prototype for
+molecule-to-pocket target fishing in the context of bioreceptor
+discovery. The prototype extends the DrugCLIP representation framework
+proposed by \cite{gao23:_drugc} beyond its original virtual-screening
+workflow. Instead of ranking molecules for a fixed protein pocket,
+BioSensIA-DC ranks candidate protein pockets for a fixed query
+molecule, producing a prioritized list of structural candidates for
+further investigation.
+
+The implemented contributions include the construction of
+candidate-pocket files from DrugCLIP-compatible data, the construction
+of query-molecule files from SMILES strings, local DrugCLIP
+identifiers, PubChem CIDs, or compound names, and the implementation
+of molecule-to-pocket retrieval. The prototype also generates ranked
+pocket lists with compatibility scores, and provides an initial
+benchmarking and diagnostic workflow.
+
+The present work should be read as a computational-prototype and
+methodology paper. Suitable benchmark validation has not yet been
+completed. Therefore, no claim is made that the current model is
+already a reliable target-fishing predictor. Instead, the paper
+reports the implemented workflow, the conceptual adaptation from
+virtual screening to target fishing, and the diagnostic issues that
+must be resolved before predictive performance can be assessed.
+
+\section{RELATED WORK}
 
 Virtual screening and target fishing are closely related computational
 tasks, but they differ in the direction of the query. In
@@ -323,32 +331,6 @@ from scratch as part of this work. The resulting prototype therefore
 adapts a virtual-screening representation model to the
 biosensor-oriented problem of prioritizing candidate bioreceptors for
 a query analyte.
-
-\subsection{Objectives and contributions}
-
-This paper describes BioSensIA-DC, a computational prototype for
-molecule-to-pocket target fishing in the context of bioreceptor
-discovery. The prototype extends the DrugCLIP representation framework
-beyond its original virtual-screening workflow. Instead of ranking
-molecules for a fixed protein pocket, BioSensIA-DC ranks candidate
-protein pockets for a fixed query molecule, producing a prioritized
-list of structural candidates for further investigation.
-
-The implemented contributions include the construction of
-candidate-pocket files from DrugCLIP-compatible data, the construction
-of query-molecule files from SMILES strings, local DrugCLIP
-identifiers, PubChem CIDs, or compound names, and the implementation
-of molecule-to-pocket retrieval. The prototype also generates ranked
-pocket lists with compatibility scores, and provides an initial
-benchmarking and diagnostic workflow.
-
-The present work should be read as a computational-prototype and
-methodology paper. Suitable benchmark validation has not yet been
-completed. Therefore, no claim is made that the current model is
-already a reliable target-fishing predictor. Instead, the paper
-reports the implemented workflow, the conceptual adaptation from
-virtual screening to target fishing, and the diagnostic issues that
-must be resolved before predictive performance can be assessed.
 
 \section{METHODOLOGY}
 
@@ -567,10 +549,10 @@ the form
   \end{cases}
 \end{equation}
 
-Note that while in DrugCLIP the similarity matrix was always square,
-in BioSensIA-DC the similarity matrix and the positive-pair mask are
-usually rectangular, because the same molecule may be associated with
-more than one pocket.
+Note that while in DrugCLIP the similarity matrix was always square
+(see Fig.~\ref{fig:dc-training}), in BioSensIA-DC the similarity
+matrix and the positive-pair mask are usually rectangular, because the
+same molecule may be associated with more than one pocket.
 
 \subsubsection{Multi-positive molecule-to-pocket loss.}
 \label{sec:multi-posit-mol}
@@ -581,7 +563,7 @@ temperature. For each query molecule $m_i$ in the batch, we define the
 multi-positive molecule-to-pocket loss as
 \begin{equation}
   \label{eq:multi-positive-m2p}
-  L^{m \rightarrow p}_{i}
+  \mathcal{L}^{m \rightarrow p}_{i}
   =
   - \log
   \frac{
@@ -594,8 +576,9 @@ This expression differs from the original DrugCLIP loss because the
 numerator may contain more than one positive pocket for the same query
 molecule. If only one positive pocket for $m_i$ is present in the
 batch, Eq.~\eqref{eq:multi-positive-m2p} reduces to the usual
-single-positive contrastive form. If several known positive pockets
-are present, all of them contribute to the numerator.
+single-positive contrastive form in Eq.~\eqref{eq:original-m2p-loss}.
+If several known positive pockets are present, all of them contribute
+to the numerator.
 
 The intuition is that, for each query molecule, the softmax
 distribution is computed over the pockets in the batch, but the
@@ -608,11 +591,11 @@ molecule-to-pocket loss for the full batch is obtained by averaging
 over the molecules:
 \begin{equation}
   \label{eq:batch-m2p}
-  L^{m \rightarrow p}
+  \mathcal{L}^{m \rightarrow p}
   =
   \frac{1}{N}
   \sum_{i=1}^{N}
-  L^{m \rightarrow p}_{i}
+  \mathcal{L}^{m \rightarrow p}_{i}
 \end{equation}
 
 \subsubsection{Pocket-to-molecule loss.}
@@ -626,7 +609,7 @@ the same positive-pair mask $Y$, the pocket-to-molecule loss for pocket
 $p_j$ is
 \begin{equation}
   \label{eq:multi-positive-p2m}
-  L^{p \rightarrow m}_{j}
+  \mathcal{L}^{p \rightarrow m}_{j}
   =
   - \log
   \frac{
@@ -644,11 +627,11 @@ Let $B$ be the number of pockets in the batch. The average
 pocket-to-molecule loss is
 \begin{equation}
   \label{eq:batch-p2m}
-  L^{p \rightarrow m}
+  \mathcal{L}^{p \rightarrow m}
   =
   \frac{1}{B}
   \sum_{j=1}^{B}
-  L^{p \rightarrow m}_{j}
+  \mathcal{L}^{p \rightarrow m}_{j}
 \end{equation}
 
 \subsubsection{Total fine-tuning loss.}
@@ -658,11 +641,11 @@ The total loss for a batch can be written as a weighted combination of
 the two retrieval directions:
 \begin{equation}
   \label{eq:total-loss}
-  L
+  \mathcal{L}
   =
-  \lambda_m L^{m \rightarrow p}
+  \lambda_m \mathcal{L}^{m \rightarrow p}
   +
-  \lambda_p L^{p \rightarrow m}
+  \lambda_p \mathcal{L}^{p \rightarrow m}
 \end{equation}
 where $\lambda_m$ and $\lambda_p$ control the relative importance of
 the two terms. For a target-fishing-oriented model, it is natural to
@@ -713,7 +696,7 @@ molecule-to-pocket retrieval in practice.
 
 The first study case considered in BioSensIA-DC is okadaic acid, a
 marine toxin relevant to ecotoxicology and to the monitoring of
-diarrhetic shellfish poisoning. This choice is motivated by an ongoing
+diarrheic shellfish poisoning. This choice is motivated by an ongoing
 ecotoxicology project concerned with the detection of marine toxins
 and other environmentally relevant analytes
 \citep{souza25:_first_recor_diarr_shell_poison}. In this context,
@@ -753,9 +736,9 @@ beginning as a curated target-fishing library.
 A first limitation is that the current candidate pockets are
 identified mainly by PDB complex identifiers. For example, a pocket
 may appear in the output under the identifier of a particular PDB
-structure, such as 2ie4. This is useful for tracing the structure back
-to its original coordinates, but it is not the most appropriate level
-of biological organization for target fishing. In a ranked
+structure, such as ``2ie4''. This is useful for tracing the structure
+back to its original coordinates, but it is not the most appropriate
+level of biological organization for target fishing. In a ranked
 target-fishing result, the user usually wants to know whether the
 query molecule is associated with a protein, a protein family, or a
 binding site. A PDB complex identifier is more specific than that: the
@@ -780,7 +763,7 @@ expected PDB complex appears among the top-ranked entries. But if the
 model retrieves a different PDB structure of the same protein, or a
 closely related structure representing the same binding site, the
 result may be biologically meaningful while still being counted as a
-false negative.
+\emph{false negative}.
 
 % This is particularly important in the present work
 % because the preliminary benchmark results are poor even for the
@@ -810,7 +793,7 @@ complexes in the Protein Data Bank, available through RCSB PDB at
 \url{https://www.rcsb.org/}. PDBbind, available at
 \url{https://www.pdbbind-plus.org.cn/}, provides processed
 protein--ligand complex structures that are commonly used in
-binding-affinity and docking studies. BioLiP/BioLiP2, available at
+binding-affinity and docking studies. BioLiP3, available at
 \url{https://zhanggroup.org/BioLiP/}, provides semi-manually curated
 biologically relevant ligand--protein interactions derived mainly from
 PDB structures. The sc-PDB database, available at
@@ -903,7 +886,15 @@ target-fishing tools and docking-based validation.
 
 \section*{Acknowledgements}
 
-???
+The authors acknowledge the support provided by EMBRAPII project
+PIFF-2511.0061, by Polo de Inovação de Campos de Goytacazes (PICG),
+IFF, and by Laboratório de Experimentação e Simulação Numérica em
+Transferência de Calor e Massa (LEMA), IPRJ, UERJ.
+
+The authors used the tool ChatGPT (OpenAI) to assist with language
+revision of the manuscript and generation of figures. All scientific
+content, interpretation of results and conclusions remain the
+responsibility of the authors.
 
 % (todo o restante do conteúdo do template permanece exatamente igual)
 

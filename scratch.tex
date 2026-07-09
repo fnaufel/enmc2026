@@ -1,0 +1,24 @@
+
+
+BioSensIA-DC is one computational component of this broader workflow.
+It focuses on the structural target-fishing step: given a query
+molecule, it ranks candidate protein pockets according to a learned
+compatibility score. The prototype is based on DrugCLIP, a contrastive
+representation-learning model originally proposed for virtual
+screening, and on Uni-Mol-style three-dimensional molecular and pocket
+representations \citep{gao23:_drugc,zhou23:_uni_mol}. BioSensIA-DC
+uses DrugCLIP as a representation-learning foundation, but extends it
+with a new target-fishing workflow, data organization strategy, and
+retrieval implementation. In the original
+virtual-screening direction, a protein pocket is used as a query to
+rank molecules. BioSensIA-DC uses the same molecule--pocket
+compatibility idea in the reverse direction: the molecule becomes the
+query, and protein pockets become the candidates to be ranked. The
+resulting ranked list is intended to support bioreceptor discovery,
+not to provide a definitive proof of binding or biosensor performance.
+
+
+---
+
+\subsection{Virtual screening, target fishing, and representation learning}
+
