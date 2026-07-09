@@ -442,10 +442,10 @@ scalar product
   \label{eq:score}
   s(p,m) = g_{\phi}(x^p)^{T} \cdot f_{\theta}(x^m)
 \end{equation}
-where \(p\) denotes a protein pocket, \(m\) denotes a molecule, and
-\(x^p\) and \(x^m\) denote their input representations. Furthermore,
-\(g_{\phi}\) is the pocket encoder (parameterized by a set $\phi$ of
-parameters), and \(f_{\theta}\) is the molecule encoder (parameterized
+where $p$ denotes a protein pocket, $m$ denotes a molecule, and
+$x^p$ and $x^m$ denote their input representations. Furthermore,
+$g_{\phi}$ is the pocket encoder (parameterized by a set $\phi$ of
+parameters), and $f_{\theta}$ is the molecule encoder (parameterized
 by a set $\theta$ of parameters). In the current DrugCLIP
 implementation, both $g_{\phi}(x^p)$ and $f_{\theta}(x^m)$ are
 128-dimensional vectors.
@@ -493,9 +493,10 @@ and the \emph{mol-to-pocket loss} for molecule $x_k^m$ is defined as
   }
 \end{equation}
 where $s(\cdot, \cdot)$ is defined in Eq.(\ref{eq:score}) and $\tau$
-is a hyperparameter (called \emph{temperature}) that controls the
-smoothness of the softmax distribution. The final loss for a batch
-(which training seeks to minimize) is then
+is a hyperparameter (called the \emph{constrastive
+  temperature}) that
+controls the smoothness of the softmax distribution. The final loss
+for a batch (which training seeks to minimize) is then
 \begin{equation}
   \label{eq:original-loss}
   \mathcal{L} = 
@@ -513,35 +514,63 @@ order to fine-tune the model for the target-fishing problem.
 
 \subsection{Fine-tuning formulation for target fishing}
 
-\begin{itemize}
-  \item Explain that the original DrugCLIP contrastive loss is naturally aligned with virtual screening, but not necessarily optimized for target fishing.
+Although virtual screening and target fishing use the same
+molecule--pocket compatibility score, they emphasize different
+retrieval directions. In virtual screening, a pocket is used as the
+query and molecules are ranked as candidates; in target fishing, a
+molecule is used as the query and pockets are ranked as candidates.
+This reversal is not only a change in input and output formatting. For
+the target-fishing use case, a query molecule may have several known
+or plausible protein pockets, corresponding to different proteins,
+homologs, isoforms, crystal structures, or binding-site variants. A
+fine-tuning objective that treats only one molecule--pocket pair as
+positive in each batch (as DrugCLIP does) may therefore penalize other
+known positives for the same molecule as implicit negatives. This
+observation motivates the target-fishing-oriented fine-tuning
+formulation described below.
 
-  \item Describe the issue with repeated ligands:
-  \begin{itemize}
-    \item the same molecule can appear in several positive protein-ligand complexes;
-    \item those complexes may correspond to different structures, homologous proteins, isoforms, or related binding sites;
-    \item in target fishing, all known pockets for the same molecule should be treated as positives;
-    \item the original diagonal-only contrastive loss may treat some known positives as implicit negatives, depending on batch composition.
-  \end{itemize}
+\subsubsection{Multiple positive pockets for a single molecule.}
+\label{sec:mult-posit-pock}
 
-  \item Define the set of known positive pockets for a molecule:
-  \begin{equation}
+In the training data for DrugCLIP, there were several molecules that
+bind more than one pocket, but this information was not taken into
+account. The idea is to use it in BioSensIA-DC.
+
+We define the \emph{set of known positive pockets} for a molecule $m$ as
+\begin{equation}
+  \label{eq:positives}
   P^{+}(m) = \{p : (p,m) \in D\}
-  \end{equation}
+\end{equation}
+where $D$ is the set of observed positive pocket-molecule pairs in the
+training data.
 
-  \item Explain that \(D\) denotes the available set of observed positive pocket-molecule pairs.
+\subsubsection{Molecule-centered sampling for batch building.}
+\label{sec:molec-cent-sampl}
 
-  \item Define a positive-pair mask for a batch:
-  \begin{equation}
+During training of BioSensIA-DC, when we build a batch, we first sample
+a set of distinct molecules $\{m_1, m_2, \cdots, m_N\}$ and then, for
+each molecule $m_i$ in the set, we sample (preferably two or more)
+positive pockets from $P^+(m_i)$. To keep track of the positive pairs
+in the batch, we also define a \emph{positive-pair mask}, a matrix of
+the form
+\begin{equation}
+  \label{eq:mask}  
   Y_{ij} =
   \begin{cases}
-  1, & \text{if } p_j \in P^{+}(m_i)\\
-  0, & \text{otherwise}
+    1, & \text{if } p_j \in P^{+}(m_i)\\
+    0, & \text{otherwise}
   \end{cases}
-  \end{equation}
+\end{equation}
 
-  \item Define the multi-positive molecule-to-pocket loss:
-  \begin{equation}
+\subsubsection{Multi-positive molecule-to-pocket loss.}
+\label{sec:multi-posit-mol}
+
+Let $S_{ij}=s(p_j,m_i)$ be the similarity score assigned by the model
+to pocket $p_j$ and molecule $m_i$. Let $\tau$ be the contrastive
+temperature. For each query molecule $m_i$ in the batch, we define the
+multi-positive molecule-to-pocket loss as
+\begin{equation}
+  \label{eq:multi-positive-m2p}
   L^{m \rightarrow p}_{i}
   =
   - \log
@@ -550,297 +579,130 @@ order to fine-tune the model for the target-fishing problem.
   }{
     \sum_j \exp(S_{ij}/\tau)
   }
-  \end{equation}
+\end{equation}
+This expression differs from the original DrugCLIP loss because the
+numerator may contain more than one positive pocket for the same query
+molecule. If only one positive pocket for $m_i$ is present in the
+batch, Eq.~\eqref{eq:multi-positive-m2p} reduces to the usual
+single-positive contrastive form. If several known positive pockets
+are present, all of them contribute to the numerator.
 
-  \item Explain that \(S_{ij}=s(p_j,m_i)\) is the similarity between pocket \(p_j\) and molecule \(m_i\), and that \(\tau\) is the contrastive temperature.
+The intuition is that, for each query molecule, the softmax
+distribution is computed over the pockets in the batch, but the
+probability mass assigned to all known positive pockets is added
+together. Thus, the loss does not force the model to choose only one
+correct pocket for a molecule. Instead, it rewards the model whenever
+the known positive pockets for that molecule receive high scores
+relative to the other candidate pockets in the batch. The
+molecule-to-pocket loss for the full batch is obtained by averaging
+over the molecules:
+\begin{equation}
+  \label{eq:batch-m2p}
+  L^{m \rightarrow p}
+  =
+  \frac{1}{N}
+  \sum_{i=1}^{N}
+  L^{m \rightarrow p}_{i}
+\end{equation}
 
-  \item Explain the intuition: for each query molecule, the loss increases the total softmax probability assigned to all known positive pockets in the batch.
+\subsubsection{Pocket-to-molecule loss.}
+\label{sec:pocket-molecule-loss}
 
-  \item Present fine-tuning variants to be discussed:
-  \begin{itemize}
-    \item freeze both encoders and train only projection layers;
-    \item train projection layers plus the temperature parameter;
-    \item unfreeze upper encoder layers;
-    \item train the full model with a smaller learning rate;
-    \item compare molecule-to-pocket loss alone with a symmetric loss that also includes pocket-to-molecule terms.
-  \end{itemize}
+Although the main objective of BioSensIA-DC is target fishing, the
+contrastive objective can also include the reverse direction. In this
+case, each pocket is used as a query, and the molecules in the batch
+are treated as candidates. Using the same similarity matrix $S$ and
+the same positive-pair mask $Y$, the pocket-to-molecule loss for pocket
+$p_j$ is
+\begin{equation}
+  \label{eq:multi-positive-p2m}
+  L^{p \rightarrow m}_{j}
+  =
+  - \log
+  \frac{
+    \sum_i Y_{ij} \exp(S_{ij}/\tau)
+  }{
+    \sum_i \exp(S_{ij}/\tau)
+  }
+\end{equation}
+This term is analogous to Eq.~\eqref{eq:multi-positive-m2p}, but it
+normalizes over molecules rather than over pockets. It rewards the
+model when the molecules known to be positive for pocket $p_j$ receive
+high scores relative to the other molecules in the batch.
 
-  \item State that the current implementation and experiments are preliminary and that the poor validation results do not yet support a performance claim.
-\end{itemize}
+Let $B$ be the number of pockets in the batch. The average
+pocket-to-molecule loss is
+\begin{equation}
+  \label{eq:batch-p2m}
+  L^{p \rightarrow m}
+  =
+  \frac{1}{B}
+  \sum_{j=1}^{B}
+  L^{p \rightarrow m}_{j}
+\end{equation}
 
-\subsection{Benchmarking and diagnostic evaluation}
+\subsubsection{Total fine-tuning loss.}
+\label{sec:total-finetuning-loss}
 
-\begin{itemize}
-  \item Explain that benchmarking target fishing is difficult because a query molecule may have several true targets, and missing pairs are not necessarily true negatives.
+The total loss for a batch can be written as a weighted combination of
+the two retrieval directions:
+\begin{equation}
+  \label{eq:total-loss}
+  L
+  =
+  \lambda_m L^{m \rightarrow p}
+  +
+  \lambda_p L^{p \rightarrow m}
+\end{equation}
+where $\lambda_m$ and $\lambda_p$ control the relative importance of
+the two terms. For a target-fishing-oriented model, it is natural to
+give more weight to the molecule-to-pocket direction, using
+$\lambda_m > \lambda_p$, or even to set $\lambda_p=0$ in an initial
+experiment. Keeping a nonzero value of $\lambda_p$ is also a
+reasonable variant, because it preserves a closer connection to the
+bidirectional contrastive training used by DrugCLIP.
 
-  \item Describe the implemented benchmark workflow:
-  \begin{itemize}
-    \item construct an explicit table of positive molecule-pocket pairs;
-    \item build query-molecule LMDB files;
-    \item build candidate-pocket LMDB files;
-    \item run molecule-to-pocket retrieval;
-    \item compare ranked lists against known positives;
-    \item compute ranking metrics.
-  \end{itemize}
+\subsubsection{Fine-tuning variants.}
+\label{sec:fine-tuning-variants}
 
-  \item List metrics to be discussed:
-  \begin{itemize}
-    \item top-\(k\) accuracy;
-    \item recall@\(k\);
-    \item mean reciprocal rank;
-    \item rank of the first known positive;
-    \item enrichment-style metrics for early retrieval;
-    \item AUROC only with caution, because it may be less informative when early ranking is the main objective.
-  \end{itemize}
+Several fine-tuning variants can be derived from the same loss
+formulation. The most conservative strategy is to freeze both encoders
+and update only the final projection layers that map molecule and
+pocket representations into the shared latent space. This reduces the
+number of trainable parameters and limits the risk of damaging the
+representations learned during the original DrugCLIP training.
 
-  \item Explain that preliminary results are poor for both the fine-tuned BioSensIA-DC model and the original DrugCLIP model in the current evaluation setup.
+A second variant is to train the projection layers together with the
+temperature parameter $\tau$. Since $\tau$ controls how concentrated
+the softmax distribution is, adjusting it during fine-tuning may help
+adapt the ranking behavior to the target-fishing setting.
 
-  \item Explain that this suggests the need for diagnostic work before any strong conclusion:
-  \begin{itemize}
-    \item verify data splits;
-    \item verify checkpoint compatibility;
-    \item verify LMDB contents;
-    \item verify atom dictionaries;
-    \item verify cached embeddings;
-    \item verify whether candidate pockets match the positive-pair table;
-    \item verify whether the benchmark task is consistent with the model's training assumptions.
-  \end{itemize}
-\end{itemize}
+A less conservative strategy is to unfreeze the upper layers of the
+encoders, allowing the model to modify part of the molecule and pocket
+representations while still preserving the lower-level 3D features.
 
-\subsection{Computational environment and reproducibility}
+The most flexible strategy is to fine-tune the full model with a
+smaller learning rate, but this also has the greatest risk of
+overfitting or catastrophic distortion of the original latent space.
 
-\begin{itemize}
-  \item Describe the computational environment used for development:
-  \begin{itemize}
-    \item GNU/Linux;
-    \item Python 3.11;
-    \item PyTorch with CUDA;
-    \item RDKit;
-    \item Uni-Core;
-    \item DrugCLIP;
-    \item LMDB.
-  \end{itemize}
+These variants can be combined with different choices of loss
+direction. One can train with the molecule-to-pocket loss alone, which
+directly matches the target-fishing task, or with the symmetric loss in
+Eq.~\eqref{eq:total-loss}, which also includes the pocket-to-molecule
+term, in which case a grid of values for $\lambda_m$ and $\lambda_p$
+may be tried.
 
-  \item Explain the use of \texttt{uv} for Python environment management.
-
-  \item Explain that a GPU is required by inherited constraints in the original DrugCLIP code path.
-
-  \item Discuss technical issues encountered:
-  \begin{itemize}
-    \item compiling Uni-Core;
-    \item CUDA extension compatibility;
-    \item C++ standard-library compatibility;
-    \item GPU memory limits;
-    \item long-running embedding precomputation;
-    \item embedding-cache invalidation.
-  \end{itemize}
-
-  \item Explain why these details matter: they affect reproducibility and practical adoption of 3D deep-learning models in computational biosensor research.
-\end{itemize}
-
+Comparing these alternatives is part of the diagnostic work
+needed to determine whether the proposed formulation improves
+molecule-to-pocket retrieval in practice.
 
 \section{RESULTS AND DISCUSSION}
 
-\subsection{Implemented software artifacts}
-
-\begin{itemize}
-  \item Present the public repository as the main concrete result of this stage.
-
-  \item List implemented artifacts:
-  \begin{itemize}
-    \item query-molecule LMDB generation;
-    \item candidate-pocket LMDB generation;
-    \item molecule-to-pocket retrieval;
-    \item ranked-pocket output;
-    \item preliminary benchmark code;
-    \item installation and execution documentation.
-  \end{itemize}
-
-  \item Include a table with columns such as:
-  \begin{itemize}
-    \item file or module name;
-    \item purpose;
-    \item input;
-    \item output;
-    \item current status.
-  \end{itemize}
-
-  \item Discuss how these artifacts convert DrugCLIP from a virtual-screening-only workflow into a prototype that can also run target-fishing queries.
-\end{itemize}
-
-\subsection{Qualitative query example with okadaic acid}
-
-\begin{itemize}
-  \item Present okadaic acid as a qualitative sanity-check query.
-
-  \item Explain the biological expectation: PP2A-related pockets should be considered relevant because PP2A is a known okadaic-acid target.
-
-  \item Include a planned table with:
-  \begin{itemize}
-    \item rank;
-    \item PDB identifier;
-    \item score;
-    \item protein or pocket annotation;
-    \item whether the result is known, plausible, unclear, or likely irrelevant.
-  \end{itemize}
-
-  \item Discuss whether PP2A-associated structures appear near the top of the ranking.
-
-  \item State clearly that this qualitative example is not a benchmark. It is only a sanity check and an illustration of the workflow.
-\end{itemize}
-
-\subsection{Preliminary quantitative results}
-
-\begin{itemize}
-  \item Report that the quantitative results obtained so far are unsatisfactory.
-
-  \item Separate two observations:
-  \begin{itemize}
-    \item the fine-tuned BioSensIA-DC model currently performs poorly;
-    \item the original DrugCLIP model also performs poorly under the current local benchmark workflow.
-  \end{itemize}
-
-  \item Avoid claiming improvement over DrugCLIP.
-
-  \item Present the results as a diagnostic table, not as a final performance table. Suggested columns:
-  \begin{itemize}
-    \item model;
-    \item checkpoint;
-    \item query set;
-    \item candidate-pocket set;
-    \item metric values;
-    \item diagnostic comment.
-  \end{itemize}
-
-  \item Explain that the current evidence points to unresolved issues in reproduction, data handling, benchmark construction, or model adaptation.
-\end{itemize}
-
-\subsection{Possible causes of the poor benchmark results}
-
-\begin{itemize}
-  \item Discuss possible data problems:
-  \begin{itemize}
-    \item mismatch between training, validation, and candidate LMDB files;
-    \item differences between the downloaded data and the data used in the original DrugCLIP paper;
-    \item duplicated PDB identifiers with different structures;
-    \item ligand-identity inconsistencies;
-    \item salt, tautomer, stereochemistry, or conformer inconsistencies.
-  \end{itemize}
-
-  \item Discuss possible implementation or protocol problems:
-  \begin{itemize}
-    \item wrong or incompatible checkpoint;
-    \item stale cached embeddings;
-    \item incorrect correspondence between pocket identifiers and benchmark positives;
-    \item candidate libraries that do not contain the expected positives;
-    \item metrics computed over an inappropriate candidate set;
-    \item target-fishing evaluation derived from data originally organized for virtual screening.
-  \end{itemize}
-
-  \item Discuss possible modeling limitations:
-  \begin{itemize}
-    \item DrugCLIP was primarily motivated by virtual screening;
-    \item target fishing is multi-positive by nature;
-    \item unobserved pairs are not reliable true negatives;
-    \item the similarity score is not physically calibrated;
-    \item fine-tuning projection layers alone may be insufficient.
-  \end{itemize}
-
-  \item Conclude that the next step must be a systematic audit before interpreting the model's predictive value.
-\end{itemize}
-
-\subsection{Relationship to existing target-fishing tools}
-
-\begin{itemize}
-  \item Compare BioSensIA-DC conceptually with PharmMapper:
-  \begin{itemize}
-    \item PharmMapper performs reverse pharmacophore mapping;
-    \item BioSensIA-DC performs learned molecule-pocket representation matching;
-    \item both produce ranked target-candidate lists.
-  \end{itemize}
-
-  \item Compare BioSensIA-DC conceptually with SwissTargetPrediction:
-  \begin{itemize}
-    \item SwissTargetPrediction relies on similarity to known ligands;
-    \item BioSensIA-DC relies on learned 3D compatibility between molecules and pockets;
-    \item the two approaches may be complementary.
-  \end{itemize}
-
-  \item Discuss how future versions of BioSensIA could combine rankings from multiple methods:
-  \begin{itemize}
-    \item rank aggregation;
-    \item consensus among tools;
-    \item grouping by protein family;
-    \item docking-based follow-up;
-    \item literature-based validation.
-  \end{itemize}
-\end{itemize}
-
-\subsection{Relevance to the BioSensIA project}
-
-\begin{itemize}
-  \item Explain that BioSensIA-DC is one module in a larger computational pipeline for biosensor-oriented bioreceptor discovery.
-
-  \item Relate the prototype to planned BioSensIA components:
-  \begin{itemize}
-    \item UniProt and Gene Ontology queries;
-    \item domain and family analysis;
-    \item PDB and AlphaFold structural data;
-    \item pocket prediction;
-    \item docking and pharmacophore analysis;
-    \item evidence aggregation for candidate bioreceptors.
-  \end{itemize}
-
-  \item Explain that even before full validation, BioSensIA-DC provides an operational way to turn a molecule-centered question into a ranked list of structural candidates.
-
-  \item Emphasize that the current results motivate further validation rather than immediate deployment.
-\end{itemize}
-
+???
 
 \section{CONCLUSIONS}
 
-\subsection{Summary of contributions}
-
-\begin{itemize}
-  \item Summarize that the paper presented BioSensIA-DC, a DrugCLIP-based computational prototype for molecule-to-pocket target fishing.
-
-  \item Highlight the main engineering contribution: implementing the reverse retrieval direction needed to rank candidate pockets for a query molecule.
-
-  \item Highlight that the prototype includes data preparation, retrieval execution, ranked output generation, and preliminary evaluation tools.
-
-  \item Highlight that the implementation is publicly available and intended to support reproducible development.
-\end{itemize}
-
-\subsection{Limitations}
-
-\begin{itemize}
-  \item State that the current model has not yet been validated as a reliable predictor.
-
-  \item State that preliminary benchmark results are poor for both the fine-tuned model and the original DrugCLIP model in the current local evaluation setup.
-
-  \item Explain that these results may reflect unresolved problems in reproduction, data consistency, benchmark construction, or the adaptation of DrugCLIP to target fishing.
-
-  \item State that no claim of improved predictive performance is made in the present paper.
-\end{itemize}
-
-\subsection{Future work}
-
-\begin{itemize}
-  \item Reproduce the original DrugCLIP benchmarks more carefully before interpreting target-fishing results.
-
-  \item Audit checkpoints, LMDB files, atom dictionaries, cached embeddings, and benchmark-positive definitions.
-
-  \item Build a target-fishing benchmark with rigorous train-test separation and clear ligand-identity policies.
-
-  \item Evaluate multi-conformer query strategies, including maximum, mean, median, quantile, and log-sum-exp aggregation.
-
-  \item Expand the candidate-pocket library using PDB, BioLiP, sc-PDB, AlphaFold structures, and pocket-prediction tools.
-
-  \item Compare BioSensIA-DC rankings with PharmMapper, SwissTargetPrediction, and docking-based validation.
-
-  \item Integrate BioSensIA-DC into a broader BioSensIA interface for biosensor-oriented candidate discovery.
-\end{itemize}
-
+???
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Acknowledgements and AI disclosure
@@ -848,14 +710,7 @@ order to fine-tune the model for the target-fishing problem.
 
 \section*{Acknowledgements}
 
-\begin{itemize}
-  \item Acknowledge computational infrastructure, collaborators, and funding sources, if applicable.
-
-  \item Include the required generative-AI disclosure. Suggested wording:
-  \begin{itemize}
-    \item The author used ChatGPT (OpenAI) to assist with manuscript organization, language revision, and discussion of alternative formulations. All scientific content, interpretation of results, and conclusions remain the responsibility of the author.
-  \end{itemize}
-\end{itemize}
+???
 
 % (todo o restante do conteúdo do template permanece exatamente igual)
 
